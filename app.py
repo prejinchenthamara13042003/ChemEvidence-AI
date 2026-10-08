@@ -32,6 +32,14 @@ except ImportError:
     pass
 
 DEFAULT_BACKEND_KEY = os.getenv("GEMINI_API_KEY", "")
+try:
+    import streamlit as st
+    if not DEFAULT_BACKEND_KEY and hasattr(st, "secrets") and "GEMINI_API_KEY" in st.secrets:
+        DEFAULT_BACKEND_KEY = st.secrets["GEMINI_API_KEY"]
+        os.environ["GEMINI_API_KEY"] = DEFAULT_BACKEND_KEY
+except Exception:
+    pass
+
 LOGO_PATH = os.path.join(os.path.dirname(__file__), "assets", "logo.png")
 
 from core.models import (
@@ -710,18 +718,29 @@ with st.sidebar:
 
     st.markdown("### ⚙️ Gemini Intelligence Engine")
     default_key_val = os.getenv("GEMINI_API_KEY") or DEFAULT_BACKEND_KEY
-    api_key_input = st.text_input(
-        "Gemini API Key:",
-        type="password",
-        value=default_key_val,
-        help="Default backend API key connected (Gemini 3.8 Flash). You can edit or replace this key anytime."
-    )
-    
+
+    # Optional collapsed override (never exposes or pre-fills the default backend key)
+    with st.expander("🔑 Custom API Key (Optional Override)", expanded=False):
+        custom_key_override = st.text_input(
+            "Custom Gemini Key:",
+            type="password",
+            value="",
+            placeholder="Leave empty to use default backend key",
+            help="Optional: Enter a different key only if you want to override the default backend key."
+        )
+
+    api_key_input = custom_key_override.strip() if custom_key_override.strip() else default_key_val
+
     if api_key_input:
         st.markdown("""
-        <div style="background: rgba(183, 110, 121, 0.16); border: 1px solid rgba(183, 110, 121, 0.4); border-radius: 8px; padding: 8px 12px; margin-top: 6px; margin-bottom: 8px;">
-            <span style="color: #8F2E44; font-weight: 700; font-size: 0.85rem;">✨ Gemini 3.8 Flash Active</span><br>
-            <span style="color: #6C4C54; font-size: 0.74rem;">Default backend API connected • Multi-turn reasoning ready</span>
+        <div style="background: rgba(183, 110, 121, 0.14); border: 1px solid rgba(183, 110, 121, 0.4); border-radius: 10px; padding: 10px 12px; margin-top: 4px; margin-bottom: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 2px;">
+                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #22C55E; box-shadow: 0 0 6px #22C55E;"></span>
+                <span style="color: #8F2E44; font-weight: 700; font-size: 0.85rem;">✨ Gemini 3.8 Flash Active</span>
+            </div>
+            <span style="color: #6C4C54; font-size: 0.74rem; display: block; line-height: 1.35;">
+                Default backend AI connected • Scientific reasoning ready
+            </span>
         </div>
         """, unsafe_allow_html=True)
     else:
@@ -1762,7 +1781,6 @@ if not st.session_state.active_paper_name or st.session_state.active_paper_name 
 active_data = st.session_state.papers_store.get(st.session_state.active_paper_name)
 if not active_data:
     st.stop()
-    active_data = {"analysis": PaperAnalysisResult(), "pages": [], "engine": EvidenceEngine([]), "metadata": PaperMetadata(title=""), "pdf_bytes": None}
 
 analysis: PaperAnalysisResult = active_data["analysis"]
 pages: List[PageContent] = active_data["pages"]
