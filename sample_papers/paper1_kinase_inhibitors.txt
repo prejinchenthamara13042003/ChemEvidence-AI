@@ -1,0 +1,43 @@
+--- Page 1 ---
+Design, Synthesis, and Biological Evaluation of Novel 2,4-Diaminopyrimidine Derivatives as Potent EGFR Kinase Inhibitors
+Elena R. Vance, Marcus K. Chen, and Aris Thorne
+Department of Medicinal Chemistry, Institute of Chemical Biology
+DOI: 10.1021/acs.jmedchem.2026.0412
+
+Abstract:
+Epidermal growth factor receptor (EGFR) mutations are key oncogenic drivers in non-small cell lung cancer. Herein, we describe the rational design and synthesis of a focused series of 2,4-diaminopyrimidines as ATP-competitive kinase inhibitors. Among the synthesized molecules, Compound 3b (C19H22N4O2) emerged as the most potent lead compound, exhibiting an IC50 of 8.4 nM against recombinant human EGFR kinase and potent antiproliferative efficacy in A549 lung adenocarcinoma cells. Compound 3b demonstrated an isolated yield of 82% via a microwave-assisted Suzuki cross-coupling reaction. Structure-activity relationship (SAR) analysis revealed that introducing an ethoxy substituent at the C-5 position dramatically enhanced kinase binding affinity and cellular potency compared to unsubstituted analogues.
+
+Introduction:
+Receptor tyrosine kinases govern critical signaling cascades in mammalian cell growth. The development of small molecule inhibitors targeting the EGFR tyrosine kinase domain has revolutionized targeted oncology. However, secondary gatekeeper mutations frequently necessitate next-generation chemotypes. We envisioned that functionalized 2,4-diaminopyrimidine scaffolds would provide optimal hydrogen-bonding networks within the kinase hinge region.
+
+--- Page 2 ---
+Chemistry and Synthetic Procedures:
+The synthetic route towards target compounds 3a-3e and 4a-4d is outlined in Scheme 1. 2,4-Dichloropyrimidine served as the initial core. Sequential nucleophilic aromatic substitution (SNAr) with substituted anilines afforded the mono-aminated intermediates in excellent regioselectivity. 
+
+For the preparation of Compound 3b, the penultimate chloro intermediate underwent Suzuki-Miyaura cross-coupling with 4-methoxyphenylboronic acid. The reaction was conducted in 1,4-dioxane/H2O (4:1 v/v) using Pd(PPh3)4 (5 mol %) as catalyst and K2CO3 (2.0 equiv) as base. The mixture was heated at 85 °C under argon for 5 h. Following aqueous workup and silica gel flash chromatography (EtOAc/hexanes 1:2), Compound 3b was obtained as an off-white crystalline solid in 82% isolated yield.
+
+Similarly, Compound 3a was prepared using phenylboronic acid in 76% yield, while Compound 4a was synthesized using 3-pyridineboronic acid in 68% yield.
+
+--- Page 3 ---
+Biological Evaluation and Structure-Activity Relationships (SAR):
+All target compounds were evaluated in vitro for enzymatic kinase inhibition against recombinant human wild-type EGFR using an ADP-Glo kinase assay. Staurosporine and Erlotinib were employed as reference standards.
+
+Table 1: Enzymatic Inhibition and Cellular Antiproliferative Activity
+Compound   | Molecular Formula | EGFR IC50 (nM) | A549 IC50 (µM) | Isolated Yield (%)
+Compound 3a| C18H20N4O         | 42.1 ± 3.2     | 4.8 ± 0.4      | 76%
+Compound 3b| C19H22N4O2        | 8.4 ± 0.6      | 0.62 ± 0.05    | 82%
+Compound 4a| C17H19N5O         | 120.5 ± 9.1    | 14.1 ± 1.2     | 68%
+Erlotinib  | C22H23N3O4        | 11.2 ± 0.8     | 0.85 ± 0.07    | Reference
+
+As shown in Table 1, Compound 3b exhibited superior enzymatic potency (IC50 = 8.4 nM), outperforming both parent Compound 3a (IC50 = 42.1 nM) and the clinical standard Erlotinib (IC50 = 11.2 nM). The antiproliferative assay in A549 cells confirmed that Compound 3b translated its potent enzymatic inhibition into robust cellular growth arrest with an IC50 of 0.62 µM.
+
+--- Page 4 ---
+Experimental Section and Characterization:
+General Methods: Reagents and solvents were purchased from commercial suppliers and used without further purification. Reactions were monitored by thin-layer chromatography (TLC) on silica gel 60 F254 plates. 1H NMR spectra (400 MHz) and 13C NMR spectra (100 MHz) were recorded on a Bruker Avance spectrometer in CDCl3. High-resolution mass spectrometry (HRMS) was performed using electrospray ionization (ESI-TOF).
+
+Characterization of Compound 3b:
+N-(4-(tert-butyl)phenyl)-5-ethoxy-2-(4-methoxyphenyl)pyrimidin-4-amine (Compound 3b):
+Off-white solid; mp 184–186 °C; isolated yield: 82% (0.61 g).
+1H NMR (400 MHz, CDCl3): δ 8.12 (s, 1H), 7.85 (d, J = 8.4 Hz, 2H), 7.42 (d, J = 8.8 Hz, 2H), 7.28 (d, J = 8.8 Hz, 2H), 6.94 (d, J = 8.4 Hz, 2H), 6.81 (br s, 1H), 4.15 (q, J = 7.0 Hz, 2H), 3.84 (s, 3H), 1.48 (t, J = 7.0 Hz, 3H), 1.32 (s, 9H).
+13C NMR (100 MHz, CDCl3): δ 160.8, 156.4, 152.1, 146.5, 141.2, 136.0, 129.4, 128.8, 125.6, 120.4, 113.8, 64.2, 55.4, 34.3, 31.4, 14.8.
+HRMS (ESI) m/z calculated for C19H23N4O2 [M+H]+ 339.1821, found 339.1818. Purity: >98.5% determined by reverse-phase HPLC.

@@ -1,0 +1,40 @@
+--- Page 1 ---
+Enantioselective Total Synthesis and Antifungal Evaluation of Lycopodine-Derived Alkaloids
+Claire E. Beauchamp, Kenji Takahashi, and Robert F. Alvarez
+Laboratory for Synthetic Chemistry and Pharmacognosy
+DOI: 10.1021/acs.jnatprod.2026.1105
+
+Abstract:
+A scalable asymmetric total synthesis of the tetracyclic alkaloid derivative (+)-Lycopodine Analogue 6b has been achieved in 11 linear steps from commercial cyclopentenone. The critical C-C bond forming cascade leverages an intramolecular organocatalytic Michael-aldol cyclization with >99:1 enantiomeric ratio. In vitro biological profiling against pathogenic fungal strains identified Compound 6b as a selective inhibitor of Candida albicans biofilm formation, displaying a minimum inhibitory concentration (MIC) of 1.8 µg/mL. Deprotection conditions utilizing trifluoroacetic acid (TFA) in dichloromethane at 0 °C afforded the target alkaloid in 84% yield without epimerization.
+
+Introduction:
+Lycopodium alkaloids present intricate polycyclic architectures decorated with contiguous stereocenters. Natural isolates frequently exhibit neuroprotective, antimicrobial, and immunosuppressive properties. Accessing non-natural synthetic analogues enables systematic alteration of steric bulk and hydrogen-bonding motifs to dissect structure-activity profiles.
+
+--- Page 2 ---
+Synthetic Sequence and Asymmetric Construction:
+The synthesis initiated with an enantioselective conjugate addition catalyzed by a chiral secondary amine catalyst (10 mol %). The key tricyclic ketone intermediate 5 was assembled through a microwave-assisted cascade sequence in toluene at 110 °C.
+
+Scheme 2 highlights the final deprotection and functionalization:
+Intermediate 5b was treated with trifluoroacetic acid (TFA, 20% v/v) in anhydrous CH2Cl2 at 0 °C for 45 min under a nitrogen atmosphere. Neutralization with saturated NaHCO3 followed by extraction with dichloromethane afforded (+)-Lycopodine Analogue 6b in 84% isolated yield.
+
+Physical and Spectroscopic Data:
+Compound 6b: colorless viscous oil; [α]D20 = +64.2 (c 1.0, CHCl3); isolated yield: 84%.
+1H NMR (500 MHz, CD3OD): δ 3.42 (m, 1H), 3.12 (dd, J = 12.0, 4.5 Hz, 1H), 2.85 (m, 2H), 2.45–2.30 (m, 3H), 1.95–1.70 (m, 6H), 1.05 (d, J = 6.5 Hz, 3H).
+13C NMR (125 MHz, CD3OD): δ 212.4, 60.1, 52.8, 46.5, 43.2, 38.6, 36.1, 30.5, 27.2, 24.8, 19.3.
+HRMS (ESI) m/z calculated for C16H26NO [M+H]+ 248.2014, found 248.2011.
+
+--- Page 3 ---
+Antifungal Activity and Cellular Selectivity:
+Synthetic analogues 6a–6d were screened against fungal pathogens Candida albicans (ATCC 90028) and Aspergillus fumigatus (AF293). Amphotericin B served as the positive clinical benchmark.
+
+Table 1: Antifungal Minimum Inhibitory Concentrations (MIC, µg/mL)
+Alkaloid Analogue | Candida albicans MIC | Aspergillus fumigatus MIC | Cytotoxicity IC50 (Vero Cells)
+Compound 6a       | 14.5 µg/mL           | >64 µg/mL                 | >100 µM
+Compound 6b       | 1.8 µg/mL            | 28.4 µg/mL                | >100 µM
+Compound 6c       | 8.2 µg/mL            | >64 µg/mL                 | 75.2 µM
+Amphotericin B    | 0.5 µg/mL            | 1.0 µg/mL                 | 12.5 µM
+
+Compound 6b demonstrated potent, selective inhibition of C. albicans with an MIC of 1.8 µg/mL and favorable therapeutic index (>55-fold selectivity over mammalian Vero cells). 
+
+Notice on Scope:
+The present manuscript focuses exclusively on in vitro antifungal potency and synthetic methodology. In vivo pharmacokinetic evaluation (e.g., rat oral bioavailability or clearance) and single-crystal X-ray crystallographic coordinates were not investigated in this study.

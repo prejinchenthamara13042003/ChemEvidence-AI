@@ -1,0 +1,49 @@
+--- Page 1 ---
+Palladium-Catalyzed C-H Activation and Arylation of Heteroarenes: Optimization and Scope
+Samantha J. Miller, David L. Rossi, and Peter Henderson
+Department of Organic Chemistry, Cambridge Laboratories
+DOI: 10.1021/acs.orglett.2026.0891
+
+Abstract:
+Direct C–H bond functionalization provides an atom-economical methodology for constructing biaryl architectures. In this study, we investigate a phosphine-free palladium catalytic system for the regioselective direct C-H arylation of thiazole and benzoxazole cores. Under optimized catalytic conditions, Compound 5c was isolated in 88% yield with high functional group compatibility. The catalytic protocol operates under benchtop conditions at 90 °C in DMF without requiring strictly anhydrous precautions. The methodology was extended to fifteen distinct heterocyclic derivatives, establishing broad scope for late-stage pharmaceutical elaboration.
+
+Introduction:
+Transition-metal-catalyzed cross-couplings conventionally rely on pre-functionalized organometallic reagents such as stannanes or boronic acids. Direct C-H activation eliminates stoichiometric organometallic byproduct generation. In particular, tailoring catalyst loadings and ligand coordination environments remains pivotal for achieving high conversions without homocoupling side-products.
+
+--- Page 2 ---
+Results and Discussion:
+Initial screening focused on coupling 2-phenylthiazole with 4-bromotoluene using various palladium precursors and carboxylate ligands. Pivalic acid (PivOH, 30 mol %) proved essential as a proton-shuttle additive to facilitate concerted metalation-deprotonation (CMD).
+
+Table 1: Optimization of Reaction Conditions for Arylation
+Entry | Catalyst (mol %) | Base (equiv) | Solvent | Temperature (°C) | Isolated Yield (%)
+1     | Pd(OAc)2 (2.5)   | K2CO3 (2.0)  | DMF     | 90               | 71%
+2     | Pd(OAc)2 (5.0)   | Cs2CO3 (2.0) | Toluene | 110              | 54%
+3     | PdCl2(MeCN)2 (2.5)| K2CO3 (2.0) | DMF     | 90               | 63%
+4     | Pd(OAc)2 (2.5)   | KOAc (2.0)   | NMP     | 100              | 66%
+
+Table 1 demonstrates that Entry 1 provided the optimal balance of efficiency and selectivity, affording Compound 5c in 71% isolated yield. Reaction temperatures below 80 °C led to incomplete starting material consumption, while temperatures exceeding 110 °C caused visible palladium black precipitation and substrate degradation.
+
+--- Page 3 ---
+Substrate Scope and Derivative Analysis:
+With optimized conditions in hand (Pd(OAc)2 2.5 mol %, PivOH 30 mol %, K2CO3 2.0 equiv, DMF, 90 °C, 12 h), the scope of aryl halides was examined. Both electron-rich and electron-poor aryl bromides delivered functionalized adducts in good to moderate yields.
+
+Table 2: Isolated Yields of Biaryl Adducts
+Derivative   | Aryl Substituent (R) | Isolated Yield (%) | Melting Point (°C)
+Compound 5a  | 4-OMe                | 78%                | 112–114
+Compound 5b  | 4-CF3                | 65%                | 98–100
+Compound 5c  | 4-Me                 | 71%                | 104–106
+Compound 5d  | 3-CN                 | 59%                | 145–147
+
+As detailed in Table 2, electron-donating substituents slightly enhanced product formation (Compound 5a, 78% yield). For Compound 5c bearing a 4-methyl substituent, an isolated yield of 71% was obtained after column chromatography.
+
+--- Page 4 ---
+Experimental Procedures:
+General Procedure for Direct C-H Arylation:
+A 25 mL resealable Schlenk tube equipped with a magnetic stir bar was charged with 2-phenylthiazole (1.0 mmol), aryl bromide (1.2 mmol), Pd(OAc)2 (5.6 mg, 0.025 mmol, 2.5 mol %), pivalic acid (30.6 mg, 0.30 mmol, 30 mol %), and potassium carbonate (276 mg, 2.0 mmol, 2.0 equiv). Anhydrous DMF (3.0 mL) was added. The tube was sealed and stirred in a preheated oil bath at 90 °C for 12 h. Upon completion, the mixture was cooled to room temperature, diluted with ethyl acetate (25 mL), washed with brine (3 × 15 mL), dried over anhydrous Na2SO4, and concentrated in vacuo. The crude residue was purified by flash column chromatography on silica gel (hexane/EtOAc 10:1).
+
+Synthesis of 5-(p-tolyl)-2-phenylthiazole (Compound 5c):
+Pale yellow crystalline solid; mp 104–106 °C; isolated yield: 71% (178 mg, 0.71 mmol).
+Note: Crude 1H NMR analysis of the unpurified reaction mixture indicated an 88% NMR conversion, whereas chromatographic isolation furnished the purified product in 71% isolated yield.
+1H NMR (400 MHz, CDCl3): δ 8.08 (s, 1H), 7.96–7.92 (m, 2H), 7.54 (d, J = 8.0 Hz, 2H), 7.45–7.38 (m, 3H), 7.23 (d, J = 8.0 Hz, 2H), 2.38 (s, 3H).
+13C NMR (100 MHz, CDCl3): δ 166.4, 142.0, 139.1, 138.4, 133.6, 129.8, 129.6, 128.9, 126.8, 126.3, 21.3.
+HRMS (ESI) m/z calculated for C16H14NS [M+H]+ 252.0847, found 252.0842.

@@ -1,0 +1,32 @@
+# Environment variables & secrets (CRITICAL: Do NOT commit)
+.env
+*.env
+.env.*
+!.env.example
+
+# Python cache & build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+build/
+dist/
+*.egg-info/
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# macOS & IDE
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Streamlit local secrets
+.streamlit/secrets.toml
