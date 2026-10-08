@@ -132,11 +132,18 @@ class EvidenceEngine:
 
         # Chemistry query boosting
         chem_boosts = {
-            "yield": 2.0, "ic50": 2.5, "ec50": 2.5, "ki": 2.5,
+            "yield": 2.2, "ic50": 2.8, "ec50": 2.8, "ki": 2.8, "gi50": 2.8,
+            "cc50": 2.8, "kd": 2.8, "mic": 2.8, "mbc": 2.5, "tgi": 2.5,
             "catalyst": 2.0, "solvent": 2.0, "nmr": 2.0, "temperature": 1.8,
-            "compound": 1.5, "inhibition": 2.0, "activity": 1.5, "synthesis": 1.8,
-            "purity": 2.0, "table": 1.8, "scheme": 1.8, "potency": 2.0
+            "compound": 1.5, "inhibition": 2.2, "activity": 1.6, "synthesis": 1.8,
+            "purity": 2.2, "table": 2.0, "scheme": 1.8, "potency": 2.2,
+            "selectivity": 2.2, "antiproliferative": 2.2, "cytotoxicity": 2.2,
+            "enantiomeric": 2.0, "biofilm": 2.0, "binding": 2.0
         }
+
+        # Identify key query anchors: compound tokens and metric tokens
+        metric_tokens = {k for k in ["ic50", "gi50", "ec50", "ki", "kd", "mic", "yield", "cc50", "purity", "potency", "selectivity"] if k in query_tokens}
+        comp_target_tokens = {t for t in query_tokens if re.match(r"^\d+[a-z]?$", t) or re.match(r"^[a-z]\d+$", t) or t in ["egfr", "a549", "her2", "cdk4", "braf", "vero", "candida", "aspergillus", "mcf7", "hela"]}
 
         k1 = 1.5
         b = 0.75
@@ -163,6 +170,15 @@ class EvidenceEngine:
                 denom = tf + k1 * (1.0 - b + b * (doc_len / self.avg_doc_len))
                 term_score = idf * (tf * (k1 + 1.0) / max(denom, 1e-6)) * boost
                 scores[i] += term_score
+
+        # Co-occurrence boosting: if chunk contains both the requested metric and compound/target
+        if metric_tokens and comp_target_tokens:
+            for i, chunk in enumerate(self.chunks):
+                chunk_terms = set(self.chunk_term_counts[i].keys())
+                has_metric = bool(chunk_terms & metric_tokens)
+                has_comp_target = bool(chunk_terms & comp_target_tokens)
+                if has_metric and has_comp_target:
+                    scores[i] *= 1.35  # 35% ranking boost for precise co-occurrence
 
         # Combine results
         ranked = []

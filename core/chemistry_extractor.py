@@ -146,6 +146,12 @@ CRITICAL EVIDENCE RULES:
 2. Every item MUST have the exact 1-based page number ("page_number") where that quote appears.
 3. If an item is not explicitly discussed in the paper, DO NOT invent or assume it.
 4. Detect any conflicting data or discrepancies (e.g. different yields or IC50 values for the same compound in different sections) and record them in "conflicts_detected".
+5. STRICT METRIC-TYPE AND TARGET DISAMBIGUATION:
+   - Strictly distinguish enzymatic inhibition (IC50, Ki, Kd) from cellular growth inhibition (GI50, TGI), cytotoxicity (CC50), and antimicrobial susceptibility (MIC).
+   - NEVER place a cell line (e.g. A549, HeLa, Vero, MCF-7) into the "target" field; assign cell lines to "cell_line" and the molecular/phenotypic effect to "target".
+   - NEVER report a cellular growth inhibition value (like A549 GI50) as an enzymatic target IC50 (like EGFR IC50).
+   - When extracting from tables, map each numerical value strictly to its column header's metric, target, and unit.
+   - Preserve exact numerical values with standard deviations or errors (e.g., "8.4 ± 0.6"), inequality symbols (<, >), and physical units.
 
 SCHEMA SPECIFICATION:
 Return a JSON object with the following keys:
@@ -177,11 +183,11 @@ Return a JSON object with the following keys:
   "bioactivities": [
     {{
       "compound_id": "Compound 3b",
-      "assay_type": "IC50 / EC50 / Ki",
-      "target": "EGFR / kinase / cell line",
-      "value": "12.4",
+      "assay_type": "IC50 / GI50 / EC50 / Ki / Kd / MIC / CC50",
+      "target": "EGFR kinase / Candida albicans / Cellular Antiproliferative",
+      "value": "8.4 ± 0.6",
       "unit": "nM",
-      "cell_line": "A549",
+      "cell_line": "A549 (or null if purely enzymatic assay)",
       "page_number": 3,
       "section": "Bioactivity Evaluation",
       "verbatim_quote": "exact quote"
@@ -531,45 +537,207 @@ RESEARCH PAPER TEXT:
                         evidence=cit
                     ))
 
-        # 3. Extract Bioactivity (IC50, Ki, EC50)
+        # 3. Extract Bioactivity & Table Properties (Table-driven + Sentence-level)
         bioactivities: List[BioactivityResult] = []
+        known_cell_lines = [
+            "A549", "H1975", "PC-9", "PC9", "MCF-7", "MCF7", "HeLa", "Vero", "Vero Cells",
+            "HepG2", "Jurkat", "K562", "MDA-MB-231", "Huh-7", "Caco-2", "NIH3T3", "CHO",
+            "HT-29", "U87", "SKBR3", "BT474", "Calu-3", "cancer cells", "cell line"
+        ]
+        known_pathogens = [
+            "Candida albicans", "C. albicans", "Aspergillus fumigatus", "A. fumigatus",
+            "Cryptococcus neoformans", "Escherichia coli", "E. coli", "Staphylococcus aureus",
+            "S. aureus", "Pseudomonas aeruginosa", "P. aeruginosa"
+        ]
+        known_enzymes = [
+            "EGFR", "HER2", "HER3", "HER4", "CDK4", "CDK6", "CDK2", "CDK1", "BRAF",
+            "VEGFR", "VEGFR2", "ALK", "ROS1", "MET", "RET", "KRAS", "MEK", "ERK",
+            "mTOR", "PI3K", "AKT", "JAK1", "JAK2", "JAK3", "TYK2", "BTK", "SYK",
+            "FLT3", "ABL", "BCR-ABL", "c-KIT", "PDGFR", "SRC", "AURKA", "AURKB",
+            "PARP", "HDAC", "SIRT", "COX-1", "COX-2", "AChE", "BChE", "protease",
+            "kinase", "polymerase", "integrase", "ligase", "Mpro", "main protease"
+        ]
+
+        # 3a. Extract directly from structured tables (highest precision)
+        for tbl in temp_tables:
+            if not tbl.headers or not tbl.rows:
+                continue
+
+            # Identify compound column (usually index 0)
+            comp_col_idx = 0
+            for idx, h in enumerate(tbl.headers):
+                if any(w in h.lower() for w in ["compound", "analogue", "derivative", "molecule", "entry", "alkaloid", "name"]):
+                    comp_col_idx = idx
+                    break
+
+            for col_idx, h in enumerate(tbl.headers):
+                if col_idx == comp_col_idx:
+                    continue
+                h_lower = h.lower()
+
+                # Check if this column is Isolated Yield
+                if "yield" in h_lower:
+                    for r in tbl.rows:
+                        if len(r) > max(col_idx, comp_col_idx):
+                            c_id = r[comp_col_idx].strip()
+                            raw_val = r[col_idx].strip()
+                            y_m = re.search(r"(\d{1,3}(?:\.\d+)?)\s*%", raw_val)
+                            if not y_m:
+                                y_m = re.search(r"^(\d{1,3}(?:\.\d+)?)$", raw_val)
+                            if y_m:
+                                properties.append(ChemicalProperty(
+                                    compound_id=c_id if c_id not in ["-", ""] else None,
+                                    parameter="Isolated Yield",
+                                    value=y_m.group(1),
+                                    unit="%",
+                                    evidence=tbl.evidence
+                                ))
+                    continue
+
+                # Check if this column is a Bioactivity Assay
+                is_bio_col = any(m in h_lower for m in ["ic50", "gi50", "ec50", "ki", "kd", "mic", "cc50", "inhibition", "potency", "activity"])
+                # Also check unit in header
+                header_unit_m = re.search(r"\((nM|µM|uM|mM|µg/mL|ug/ml|ng/mL|%)\)", h, re.IGNORECASE)
+                if not is_bio_col and not header_unit_m:
+                    continue
+
+                # Determine assay metric
+                col_metric = "IC50"
+                if re.search(r"\bgi50\b", h_lower):
+                    col_metric = "GI50"
+                elif re.search(r"\bmic\b", h_lower):
+                    col_metric = "MIC"
+                elif re.search(r"\bcc50\b", h_lower):
+                    col_metric = "CC50"
+                elif re.search(r"\bki\b", h_lower):
+                    col_metric = "Ki"
+                elif re.search(r"\bkd\b", h_lower):
+                    col_metric = "Kd"
+                elif re.search(r"\bec50\b", h_lower):
+                    col_metric = "EC50"
+                elif re.search(r"\binhibition\b", h_lower):
+                    col_metric = "% Inhibition"
+
+                # Determine target and cell line from column header
+                col_target = "Enzyme Target"
+                col_cell_line = None
+
+                # Check for cell lines in header
+                for cl in known_cell_lines:
+                    if cl.lower() in h_lower:
+                        col_cell_line = cl
+                        col_target = "Cytotoxicity" if "cytotox" in h_lower else "Cellular Antiproliferative"
+                        break
+
+                # Check for pathogens in header
+                if not col_cell_line:
+                    for path in known_pathogens:
+                        if path.lower() in h_lower:
+                            col_target = path
+                            break
+
+                # Check for enzymes/receptors in header
+                if not col_cell_line and col_target == "Enzyme Target":
+                    for enz in known_enzymes:
+                        if enz.lower() in h_lower:
+                            col_target = enz
+                            break
+
+                # If still Enzyme Target, inspect table title
+                if col_target == "Enzyme Target" and not col_cell_line:
+                    for enz in known_enzymes:
+                        if enz.lower() in tbl.title.lower():
+                            col_target = enz
+                            break
+
+                # Parse row values for this column
+                for r in tbl.rows:
+                    if len(r) > max(col_idx, comp_col_idx):
+                        c_id = r[comp_col_idx].strip()
+                        raw_val = r[col_idx].strip()
+                        if raw_val in ["-", "--", "N/A", "nd", "ND", "not determined", "Reference", "none"] or not raw_val:
+                            continue
+
+                        # Extract value and optional unit
+                        val_unit_m = re.search(r"((?:[><≤≥]\s*)?\d+(?:\.\d+)?(?:\s*±\s*\d+(?:\.\d+)?)?)\s*(nM|µM|uM|mM|µg/mL|ug/ml|ng/mL|%)?", raw_val, re.IGNORECASE)
+                        if val_unit_m:
+                            num_val = val_unit_m.group(1).strip()
+                            row_unit = val_unit_m.group(2) or (header_unit_m.group(1) if header_unit_m else ("µg/mL" if col_metric == "MIC" else "nM"))
+                            bioactivities.append(BioactivityResult(
+                                compound_id=c_id if c_id not in ["-", ""] else None,
+                                assay_type=col_metric,
+                                target=col_target,
+                                value=num_val,
+                                unit=row_unit,
+                                cell_line=col_cell_line,
+                                evidence=tbl.evidence
+                            ))
+
+        # 3b. Extract from narrative sentences (with strict local target & cell line isolation)
         for page in pages:
             sec_name = page.sections[0]["name"] if page.sections else "Main Text"
             sentences = re.split(r"(?<=[.!?])\s+", page.text)
             for s in sentences:
-                bio_match = re.search(r"\b(IC50|EC50|Ki|GI50)\s*(?:value|of)?\s*[:=]?\s*(\d+(?:\.\d+)?)\s*(nM|µM|uM|mM|ng/mL)\b", s, re.IGNORECASE)
+                bio_match = re.search(r"\b(IC50|EC50|Ki|Kd|GI50|CC50|MIC)\s*(?:value|of)?\s*[:=]?\s*((?:[><≤≥]\s*)?\d+(?:\.\d+)?(?:\s*±\s*\d+(?:\.\d+)?)?)\s*(nM|µM|uM|mM|ng/mL|µg/mL|ug/ml)\b", s, re.IGNORECASE)
                 if bio_match:
                     assay_type = bio_match.group(1).upper()
-                    val = bio_match.group(2)
+                    val = bio_match.group(2).strip()
                     unit = bio_match.group(3)
-                    
-                    # Target detection
+
+                    # Strict target and cell line isolation (MUST be in the SAME sentence)
+                    s_lower = s.lower()
                     target = "Enzyme Target"
-                    for t_kw in ["EGFR", "HER2", "CDK4", "VEGFR", "BRAF", "kinase", "protease", "COX-2", "A549", "MCF-7", "HeLa"]:
-                        if t_kw.lower() in s.lower() or t_kw.lower() in page.text.lower():
-                            target = t_kw
+                    cell_line = None
+
+                    # Check cell lines in this sentence
+                    for cl in known_cell_lines:
+                        if cl.lower() in s_lower:
+                            cell_line = cl
+                            target = "Cytotoxicity" if "cytotox" in s_lower else "Cellular Antiproliferative"
                             break
 
+                    # Check pathogens in this sentence
+                    if not cell_line:
+                        for path in known_pathogens:
+                            if path.lower() in s_lower:
+                                target = path
+                                break
+
+                    # Check enzymes in this sentence
+                    if not cell_line and target == "Enzyme Target":
+                        for enz in known_enzymes:
+                            if enz.lower() in s_lower:
+                                target = enz
+                                break
+
+                    # Match compound in this sentence
                     comp_assoc = None
                     for c_id in seen_compounds:
-                        if c_id.lower() in s.lower():
+                        if c_id.lower() in s_lower:
                             comp_assoc = c_id
                             break
 
-                    cit = EvidenceCitation(
-                        page_number=page.page_number,
-                        section=sec_name,
-                        verbatim_quote=s.strip(),
-                        confidence=0.94
+                    # De-duplicate if already captured from table
+                    is_dup = any(
+                        b.compound_id == comp_assoc and b.assay_type == assay_type and b.value == val
+                        for b in bioactivities
                     )
-                    bioactivities.append(BioactivityResult(
-                        compound_id=comp_assoc,
-                        assay_type=assay_type,
-                        target=target,
-                        value=val,
-                        unit=unit,
-                        evidence=cit
-                    ))
+                    if not is_dup:
+                        cit = EvidenceCitation(
+                            page_number=page.page_number,
+                            section=sec_name,
+                            verbatim_quote=s.strip(),
+                            confidence=0.94
+                        )
+                        bioactivities.append(BioactivityResult(
+                            compound_id=comp_assoc,
+                            assay_type=assay_type,
+                            target=target,
+                            value=val,
+                            unit=unit,
+                            cell_line=cell_line,
+                            evidence=cit
+                        ))
 
         # 4. Extract Experimental Conditions
         conditions: List[ExperimentalCondition] = []

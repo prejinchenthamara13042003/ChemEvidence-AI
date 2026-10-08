@@ -258,13 +258,14 @@ The user wants a PROPER, SIMPLE, CLEAR, AND EASY-TO-UNDERSTAND answer to their c
 CRITICAL INSTRUCTIONS:
 1. TARGET LANGUAGE: You MUST provide your entire answer in {lang_name} ({native_name}).
 2. SIMPLICITY LEVEL: {simplicity_level}. Use everyday, plain language. Avoid dense, impenetrable academic jargon.
-3. STRUCTURE: You MUST organize your response exactly into the following 4 sections using these exact headers:
+3. ACCURACY & METRIC PRECISION: Be scientifically accurate with exact numbers and metrics. Strictly distinguish between enzymatic IC50, cellular growth inhibition GI50/CC50, and antimicrobial MIC. Never confuse a cell line metric (like A549 GI50) with an enzyme target metric (like EGFR IC50).
+4. STRUCTURE: You MUST organize your response exactly into the following 4 sections using these exact headers:
 
 ### {headers['simple_title']}
 (A friendly 2-3 sentence overview that answers the user's question directly in simple words so anyone can understand it).
 
 ### {headers['facts_title']}
-(3-4 bullet points highlighting key molecules, chemical names, exact numbers like IC50 or yields, enzymes, reagents, and conditions).
+(3-4 bullet points highlighting key molecules, chemical names, exact numbers like IC50/GI50 or yields, enzymes, reagents, and conditions).
 
 ### {headers['meaning_title']}
 (An intuitive everyday analogy or real-world practical explanation of why this matters, e.g., how the drug works like a key in a lock, or why high yield saves cost).
@@ -418,110 +419,111 @@ USER'S QUESTION:
             except Exception:
                 continue
 
-        lead_name = best_bio.compound_id if best_bio else (analysis.compounds[0].name if analysis.compounds else "Lead Compound")
-        target_name = best_bio.target if best_bio else "Enzyme Target"
+        lead_name = best_bio.compound_id if best_bio and best_bio.compound_id else (analysis.compounds[0].name if analysis.compounds else "Lead Compound")
+        metric_label = best_bio.assay_type if best_bio and best_bio.assay_type else "Potency"
+        target_name = (best_bio.cell_line if best_bio and best_bio.cell_line else (best_bio.target if best_bio and best_bio.target else "Target System"))
         pot_str = f"{best_bio.value} {best_bio.unit}" if best_bio else "High Potency"
-        page_num = best_bio.evidence.page_number if best_bio else 1
-        quote = best_bio.evidence.verbatim_quote if best_bio else f"Optimal inhibition demonstrated by {lead_name}."
+        page_num = best_bio.evidence.page_number if best_bio and best_bio.evidence else 1
+        quote = best_bio.evidence.verbatim_quote if best_bio and best_bio.evidence else f"Optimal activity demonstrated by {lead_name}."
 
         templates = {
             "ml": {
-                "simple": f"ഈ ഗവേഷണത്തിലെ ഏറ്റവും വീര്യമുള്ളതും ഫലപ്രദവുമായ തന്മാത്ര (Lead Compound) **{lead_name}** ആണ്. ഇത് {target_name} എന്ന എൻസൈമിനെ വളരെ ശക്തമായി തടയുന്നു ({pot_str}). വളരെ കുറഞ്ഞ അളവിൽ തന്നെ കാൻസർ പ്രോട്ടീനുകളെ തടയാൻ ഇതിന് സാധിക്കും.",
+                "simple": f"ഈ ഗവേഷണത്തിലെ ഏറ്റവും വീര്യമുള്ളതും ഫലപ്രദവുമായ തന്മാത്ര (Lead Compound) **{lead_name}** ആണ്. ഇത് {target_name}-നെതിരെ ഉയർന്ന ഫലപ്രാപ്തി കാണിക്കുന്നു ({metric_label}: {pot_str}). വളരെ കുറഞ്ഞ അളവിൽ തന്നെ ലക്ഷ്യമിട്ട പ്രോട്ടീനുകളെ/കോശങ്ങളെ നിയന്ത്രിക്കാൻ ഇതിന് സാധിക്കും.",
                 "facts": [
                     f"**പ്രധാന കോമ്പൗണ്ട്:** {lead_name}",
-                    f"**വീര്യം (IC50):** {pot_str} ({target_name}-നെതിരെ)",
-                    f"**ലക്ഷ്യം (Target):** {target_name} എൻസൈം റിസപ്റ്റർ",
+                    f"**വീര്യം ({metric_label}):** {pot_str} ({target_name}-നെതിരെ)",
+                    f"**ലക്ഷ്യം (Target):** {target_name}",
                     f"**രേഖപ്പെടുത്തിയ പേജ്:** പേജ് {page_num}"
                 ],
-                "meaning": "ഒരു പൂട്ടിന് കൃത്യമായ താക്കോൽ എന്നപോലെ, ഈ തന്മാത്ര കാൻസർ കോശങ്ങൾ വളരാൻ ഉപയോഗിക്കുന്ന എൻസൈമിന്റെ പ്രവർത്തനത്തെ ലോക്ക് ചെയ്തു നിർത്തുന്നു. കുറഞ്ഞ ഡോസിൽ തന്നെ ഉയർന്ന ഫലം ലഭിക്കുമെന്നതാണ് ഇതിന്റെ മേന്മ.",
+                "meaning": "ഒരു പൂട്ടിന് കൃത്യമായ താക്കോൽ എന്നപോലെ, ഈ തന്മാത്ര ഉദ്ദേശിച്ച ലക്ഷ്യത്തിന്റെ പ്രവർത്തനത്തെ കൃത്യമായി തടയുന്നു. കുറഞ്ഞ അളവിൽ തന്നെ ഉയർന്ന ഫലം ലഭിക്കുമെന്നതാണ് ഇതിന്റെ മേന്മ.",
                 "source": f"പേജ് {page_num}: \"{quote}\""
             },
             "hi": {
-                "simple": f"इस शोध पत्र का सबसे सक्रिय और प्रमुख यौगिक (Lead Molecule) **{lead_name}** है। यह {target_name} को अत्यधिक प्रभावी ढंग से रोकता है ({pot_str})।",
+                "simple": f"इस शोध पत्र का सबसे सक्रिय और प्रमुख यौगिक (Lead Molecule) **{lead_name}** है। यह {target_name} के विरुद्ध अत्यधिक प्रभावी है ({metric_label}: {pot_str})।",
                 "facts": [
                     f"**प्रमुख यौगिक:** {lead_name}",
-                    f"**सक्रियता (IC50):** {pot_str} ({target_name} के विरुद्ध)",
+                    f"**सक्रियता ({metric_label}):** {pot_str} ({target_name} के विरुद्ध)",
                     f"**जैविक लक्ष्य:** {target_name}",
                     f"**पृष्ठ संख्या:** पेज {page_num}"
                 ],
-                "meaning": "इसे एक ताले और चाबी की तरह समझें। यह अणु कैंसर कोशिकाओं को बढ़ने का संकेत देने वाले एंजाइम को सटीक रूप से ब्लॉक करता है, जिससे स्वस्थ कोशिकाओं को कम नुकसान पहुँचता है।",
+                "meaning": "इसे एक ताले और चाबी की तरह समझें। यह अणु विशिष्ट जैविक लक्ष्य को सटीक रूप से ब्लॉक करता है, जिससे न्यूनतम खुराक में अधिकतम प्रभाव प्राप्त होता है।",
                 "source": f"पेज {page_num}: \"{quote}\""
             },
             "ta": {
-                "simple": f"இந்த ஆய்வில் கண்டறியப்பட்ட மிக முக்கியமான மற்றும் வீரியம் மிக்க மூலக்கூறு **{lead_name}** ஆகும். இது {target_name} புரதத்தை மிகச் சிறந்த முறையில் கட்டுப்படுத்துகிறது ({pot_str}).",
+                "simple": f"இந்த ஆய்வில் கண்டறியப்பட்ட மிக முக்கியமான மற்றும் வீரியம் மிக்க மூலக்கூறு **{lead_name}** ஆகும். இது {target_name} மீது சிறந்த கட்டுப்பாடு செலுத்துகிறது ({metric_label}: {pot_str}).",
                 "facts": [
                     f"**முக்கிய மூலக்கூறு:** {lead_name}",
-                    f"**வீரியம் (IC50):** {pot_str}",
-                    f"**இலக்கு என்சைம்:** {target_name}",
+                    f"**வீரியம் ({metric_label}):** {pot_str}",
+                    f"**இலக்கு:** {target_name}",
                     f"**ஆதார பக்கம்:** பக்கம் {page_num}"
                 ],
-                "meaning": "பூட்டும் சாவியும் போல, இந்த மூலக்கூறு புற்றுநோய் செல்கள் பெருகுவதற்கு உதவும் புரதத்தை மிகச் சரியாக முடக்குகிறது.",
+                "meaning": "பூட்டும் சாவியும் போல, இந்த மூலக்கூறு குறிப்பிட்ட உயிரியல் இலக்கை மிகச் சரியாக முடக்குகிறது.",
                 "source": f"பக்கம் {page_num}: \"{quote}\""
             },
             "de": {
-                "simple": f"Die aktivste und vielversprechendste Leitsubstanz in dieser Arbeit ist **{lead_name}**. Sie hemmt {target_name} mit hoher Potenz ({pot_str}).",
+                "simple": f"Die aktivste und vielversprechendste Leitsubstanz in dieser Arbeit ist **{lead_name}**. Sie hemmt {target_name} mit hoher Potenz ({metric_label}: {pot_str}).",
                 "facts": [
                     f"**Leitsubstanz:** {lead_name}",
-                    f"**Wirksamkeit (IC50):** {pot_str} gegen {target_name}",
+                    f"**Wirksamkeit ({metric_label}):** {pot_str} gegen {target_name}",
                     f"**Biologisches Ziel:** {target_name}",
                     f"**Dokumentiert auf:** Seite {page_num}"
                 ],
-                "meaning": "Wie ein passgenauer Schlüssel im Schloss blockiert dieses Molekül gezielt das Enzym, das das Wachstum von Tumorzellen antreibt.",
+                "meaning": "Wie ein passgenauer Schlüssel im Schloss blockiert dieses Molekül gezielt das biologische Zielmolekül.",
                 "source": f"Seite {page_num}: \"{quote}\""
             },
             "es": {
-                "simple": f"El compuesto líder más activo y potente de este estudio es **{lead_name}**, el cual inhibe a {target_name} con un valor de {pot_str}.",
+                "simple": f"El compuesto líder más activo y potente de este estudio es **{lead_name}**, el cual actúa sobre {target_name} con un valor de {metric_label}: {pot_str}.",
                 "facts": [
                     f"**Compuesto líder:** {lead_name}",
-                    f"**Potencia (IC50):** {pot_str} contra {target_name}",
+                    f"**Potencia ({metric_label}):** {pot_str} contra {target_name}",
                     f"**Diana biológica:** {target_name}",
                     f"**Página reportada:** Página {page_num}"
                 ],
-                "meaning": "Funciona como una llave perfecta que encaja y bloquea el motor que hace proliferar a las células tumorales.",
+                "meaning": "Funciona como una llave perfecta que encaja y bloquea selectivamente la diana biológica de interés.",
                 "source": f"Página {page_num}: \"{quote}\""
             },
             "fr": {
-                "simple": f"Le composé chef de file le plus puissant identifié dans cette étude est **{lead_name}**. Il inhibe {target_name} avec une efficacité de {pot_str}.",
+                "simple": f"Le composé chef de file le plus puissant identifié dans cette étude est **{lead_name}**. Il inhibe {target_name} avec une efficacité ({metric_label}) de {pot_str}.",
                 "facts": [
                     f"**Molécule phare :** {lead_name}",
-                    f"**Puissance (IC50) :** {pot_str} contre {target_name}",
-                    f"**Cible enzymatique :** {target_name}",
+                    f"**Puissance ({metric_label}) :** {pot_str} contre {target_name}",
+                    f"**Cible biologique :** {target_name}",
                     f"**Page référencée :** Page {page_num}"
                 ],
-                "meaning": "Comme une clé taillée sur mesure, cette molécule bloque le mécanisme qui stimule la division des cellules cancéreuses.",
+                "meaning": "Comme une clé taillée sur mesure, cette molécule bloque sélectivement le mécanisme ciblé.",
                 "source": f"Page {page_num}: \"{quote}\""
             },
             "zh": {
-                "simple": f"本研究中活性最高、最具潜力的先导化合物是 **{lead_name}**，对 {target_name} 展现出极强抑制活性（{pot_str}）。",
+                "simple": f"本研究中活性最高、最具潜力的先导化合物是 **{lead_name}**，对 {target_name} 展现出显著活性（{metric_label}: {pot_str}）。",
                 "facts": [
                     f"**核心化合物：** {lead_name}",
-                    f"**活性指标 (IC50)：** {pot_str} (靶向 {target_name})",
+                    f"**活性指标 ({metric_label})：** {pot_str} (靶向 {target_name})",
                     f"**生物靶标：** {target_name}",
                     f"**出处页码：** 第 {page_num} 页"
                 ],
-                "meaning": "如同量身定制的钥匙，该分子能精准锁死癌细胞的信号传导枢纽，低剂量即可发挥显著药效。",
+                "meaning": "如同量身定制的钥匙，该分子能精准作用于生物学靶标，低剂量即可发挥显著药效。",
                 "source": f"第 {page_num} 页: \"{quote}\""
             },
             "ar": {
-                "simple": f"المركب الرائد الأكثر فعالية في هذه الدراسة هو **{lead_name}**، حيث يثبط إنزيم {target_name} بتركيز فعال قدره {pot_str}.",
+                "simple": f"المركب الرائد الأكثر فعالية في هذه الدراسة هو **{lead_name}**، حيث يستهدف {target_name} بتركيز قدره {pot_str} ({metric_label}).",
                 "facts": [
                     f"**المركب الفعال:** {lead_name}",
-                    f"**قيمة التثبيط (IC50):** {pot_str}",
-                    f"**الإنزيم المستهدف:** {target_name}",
+                    f"**قيمة النشاط ({metric_label}):** {pot_str}",
+                    f"**الهدف البيولوجي:** {target_name}",
                     f"**رقم الصفحة:** صفحة {page_num}"
                 ],
-                "meaning": "مثل مفتاح دقيق داخل قفل، يغلق هذا الجزيء مسار الإشارات الذي يغذي نمو الخلايا غير المرغوبة بدقة عالية.",
+                "meaning": "مثل مفتاح دقيق داخل قفل، يغلق هذا الجزيء المسار المستهدف بدقة عالية وبأقل جرعة.",
                 "source": f"صفحة {page_num}: \"{quote}\""
             },
             "en": {
-                "simple": f"The standout lead compound identified in this paper is **{lead_name}**. It demonstrates potent inhibition of {target_name} with an IC50 of {pot_str}.",
+                "simple": f"The standout lead compound identified in this paper is **{lead_name}**. It demonstrates potent activity against {target_name} with a measured {metric_label} of {pot_str}.",
                 "facts": [
                     f"**Lead Molecule:** {lead_name}",
-                    f"**Potency (IC50):** {pot_str} against {target_name}",
-                    f"**Target Enzyme:** {target_name}",
+                    f"**Potency ({metric_label}):** {pot_str} against {target_name}",
+                    f"**Biological Target / System:** {target_name}",
                     f"**Reported on:** Page {page_num}"
                 ],
-                "meaning": "Think of it like a custom key designed to fit into a specific lock—it binds selectively to the tumor's signaling enzyme, halting aberrant cell proliferation.",
+                "meaning": "Think of it like a custom key designed to fit into a specific lock—it binds selectively to its molecular target, delivering potent activity at minimal concentrations.",
                 "source": f"Page {page_num}: \"{quote}\""
             }
         }

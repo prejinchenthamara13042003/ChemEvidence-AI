@@ -107,6 +107,66 @@ class TestQASystem(unittest.TestCase):
         if resp.conflicts:
             self.assertIn("Yield", resp.conflicts[0].topic)
 
+    def test_metric_type_and_cell_line_disambiguation(self):
+        """Verifies that enzyme IC50 (EGFR) is never confused with cellular growth inhibition (A549)."""
+        txt_path = "/Users/prejin/Thesis/sample_papers/paper1_kinase_inhibitors.txt"
+        with open(txt_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        pages = DocumentParser.parse_text_content(content)
+        meta = DocumentParser.extract_metadata(pages)
+        engine = EvidenceEngine(pages)
+        extractor = ChemistryExtractor(use_local_only=True)
+        analysis = extractor.analyze_paper(pages, meta, engine)
+        qa = QASystem(use_local_only=True)
+
+        # 1. Query for enzymatic EGFR IC50
+        resp_egfr = qa.ask("What is the IC50 value of Compound 3b against EGFR kinase?", pages, engine, analysis)
+        self.assertEqual(resp_egfr.status, "found")
+        self.assertIn("8.4", resp_egfr.answer)
+        self.assertIn("nM", resp_egfr.answer)
+
+        # 2. Query for cellular A549 activity
+        resp_a549 = qa.ask("What is the antiproliferative IC50 of Compound 3b in A549 cells?", pages, engine, analysis)
+        self.assertEqual(resp_a549.status, "found")
+        self.assertIn("0.62", resp_a549.answer)
+        self.assertIn("A549", resp_a549.answer)
+
+    def test_target_absence_detection(self):
+        """Verifies that querying for an unmeasured target (HER2) triggers strict absence detection."""
+        txt_path = "/Users/prejin/Thesis/sample_papers/paper1_kinase_inhibitors.txt"
+        with open(txt_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        pages = DocumentParser.parse_text_content(content)
+        meta = DocumentParser.extract_metadata(pages)
+        engine = EvidenceEngine(pages)
+        extractor = ChemistryExtractor(use_local_only=True)
+        analysis = extractor.analyze_paper(pages, meta, engine)
+        qa = QASystem(use_local_only=True)
+
+        resp = qa.ask("What is the IC50 value of Compound 3b against HER2 kinase?", pages, engine, analysis)
+        self.assertEqual(resp.status, "absent")
+        self.assertIn("No supporting evidence was found", resp.answer)
+
+    def test_paper3_antifungal_mic_extraction_and_qa(self):
+        """Verifies that antimicrobial MIC values and fungal targets are correctly extracted and answered."""
+        txt_path = "/Users/prejin/Thesis/sample_papers/paper3_natural_product_sar.txt"
+        with open(txt_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        pages = DocumentParser.parse_text_content(content)
+        meta = DocumentParser.extract_metadata(pages)
+        engine = EvidenceEngine(pages)
+        extractor = ChemistryExtractor(use_local_only=True)
+        analysis = extractor.analyze_paper(pages, meta, engine)
+        qa = QASystem(use_local_only=True)
+
+        resp = qa.ask("What is the MIC of Compound 6b against Candida albicans?", pages, engine, analysis)
+        self.assertEqual(resp.status, "found")
+        self.assertIn("1.8", resp.answer)
+        self.assertIn("Candida albicans", resp.answer)
+        self.assertIn("MIC", resp.answer)
+        # Ensure it does not report kinase or EGFR
+        self.assertNotIn("EGFR", resp.answer)
+
 
 if __name__ == "__main__":
     unittest.main()
