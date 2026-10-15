@@ -10,7 +10,10 @@ import os
 import re
 import html
 from typing import List, Dict, Any, Optional, Tuple
-from core.models import PaperAnalysisResult, EvidenceCitation, ExperimentalCondition, MultilingualBotResponse
+from core.models import (
+    PaperAnalysisResult, EvidenceCitation, ExperimentalCondition, MultilingualBotResponse,
+    PaperMetadata, AVAILABLE_GEMINI_MODELS, generate_content_with_fallback
+)
 from core.pdf_parser import PageContent
 
 # Gemini GenAI SDK
@@ -121,7 +124,7 @@ class MultilingualChemBot:
         self.client = None
         if self.api_key and HAS_GENAI:
             try:
-                self.client = genai.Client(api_key=self.api_key, http_options={"timeout": 15000})
+                self.client = genai.Client(api_key=self.api_key, http_options={"timeout": 60000})
             except Exception as e:
                 print(f"[MultilingualChemBot] Client init error: {e}")
                 self.client = None
@@ -180,11 +183,14 @@ class MultilingualChemBot:
         analysis: Optional[PaperAnalysisResult] = None,
         pages: Optional[List[PageContent]] = None,
         language_choice: str = "Auto-Detect",
-        simplicity_level: str = "Simple & Everyday"
+        simplicity_level: str = "Simple & Everyday",
+        engine: Optional[Any] = None,
+        chat_history: Optional[List[Dict[str, Any]]] = None
     ) -> MultilingualBotResponse:
         """
         Main entry point for generating a proper simple answer in the user's language.
         Tries Gemini 3.8 Flash first; automatically falls back to smart local synthesis.
+        Now grounds in retrieved document passages, matching tables, and multi-turn chat history.
         """
         lang_code, lang_name = self.detect_language(query, language_choice)
         headers = self.LOCALIZED_HEADERS.get(lang_code, self.LOCALIZED_HEADERS["en"])
@@ -198,7 +204,9 @@ class MultilingualChemBot:
                     lang_name=lang_name,
                     analysis=analysis,
                     pages=pages,
-                    simplicity_level=simplicity_level
+                    simplicity_level=simplicity_level,
+                    engine=engine,
+                    chat_history=chat_history
                 )
                 if gemini_resp:
                     return gemini_resp
@@ -213,7 +221,8 @@ class MultilingualChemBot:
             headers=headers,
             analysis=analysis,
             pages=pages,
-            simplicity_level=simplicity_level
+            simplicity_level=simplicity_level,
+            engine=engine
         )
 
     def _call_gemini(
@@ -223,34 +232,113 @@ class MultilingualChemBot:
         lang_name: str,
         analysis: Optional[PaperAnalysisResult],
         pages: Optional[List[PageContent]],
-        simplicity_level: str
+        simplicity_level: str,
+        engine: Optional[Any] = None,
+        chat_history: Optional[List[Dict[str, Any]]] = None
     ) -> Optional[MultilingualBotResponse]:
         """Queries Gemini 3.8 Flash with strict instructions to reply in the requested language."""
         headers = self.LOCALIZED_HEADERS.get(lang_code, self.LOCALIZED_HEADERS["en"])
         native_name = self.SUPPORTED_LANGUAGES.get(lang_code, {}).get("native", lang_name)
+        q_lower = query.lower()
 
-        # Prepare context excerpt from loaded paper
+        # Initialize engine if missing but pages are available
+        if not engine and pages:
+            try:
+                from core.evidence_engine import EvidenceEngine
+                engine = EvidenceEngine(pages)
+            except Exception:
+                pass
+
+        # Retrieve top relevant passages using EvidenceEngine
+        retrieved_passages_str = ""
+        top_citations_ref = ""
+        if engine and hasattr(engine, "search"):
+            try:
+                top_chunks = engine.search(query, top_k=4, min_score=0.08)
+                if top_chunks:
+                    p_lines = []
+                    for chunk, score in top_chunks:
+                        p_lines.append(f"[Page {chunk.page_number}, Section: {chunk.section}]\n{chunk.text[:380]}")
+                    retrieved_passages_str = "\n\n".join(p_lines)
+                    top_citations_ref = f"Page {top_chunks[0][0].page_number} ({top_chunks[0][0].section})"
+            except Exception as e:
+                print(f"[MultilingualChemBot] Engine search notice: {e}")
+
+        # Prepare context excerpt from loaded paper with query-relevant filtering
         paper_context_str = "No specific manuscript uploaded. Answer as a general, friendly multilingual chemistry mentor."
         if analysis:
             meta = analysis.metadata
             paper_context_str = f"PAPER TITLE: {meta.title}\n"
+            if meta.authors:
+                paper_context_str += f"AUTHORS: {meta.authors}\n"
+            if meta.journal_or_doi:
+                paper_context_str += f"DOI / JOURNAL: {meta.journal_or_doi}\n"
             paper_context_str += f"SUMMARY: {analysis.executive_summary[:600]}\n"
+
+            # Relevant compounds matching query or top active leads
             if analysis.compounds:
+                matched_comps = [
+                    c for c in analysis.compounds
+                    if (c.compound_id and c.compound_id.lower() in q_lower) or (c.name and c.name.lower() in q_lower)
+                ]
+                comps_to_show = matched_comps if matched_comps else analysis.compounds[:5]
                 paper_context_str += "KEY COMPOUNDS IDENTIFIED:\n"
-                for c in analysis.compounds[:5]:
+                for c in comps_to_show:
                     paper_context_str += f"- {c.compound_id}: {c.name} (Formula: {c.formula or 'N/A'}, SMILES: {c.smiles or 'N/A'})\n"
+
+            # Relevant bioactivities matching query or top active assays
             if analysis.bioactivities:
-                paper_context_str += "KEY BIOACTIVITIES / IC50:\n"
-                for b in analysis.bioactivities[:5]:
-                    paper_context_str += f"- {b.compound_id}: {b.assay_type} vs {b.target} = {b.value} {b.unit} [Page {b.evidence.page_number}]\n"
+                matched_bios = [
+                    b for b in analysis.bioactivities
+                    if (b.compound_id and b.compound_id.lower() in q_lower)
+                    or (b.target and b.target.lower() in q_lower)
+                    or (b.cell_line and b.cell_line.lower() in q_lower)
+                ]
+                bios_to_show = matched_bios if matched_bios else analysis.bioactivities[:6]
+                paper_context_str += "VERIFIED BIOACTIVITIES / IC50 / ASSAYS:\n"
+                for b in bios_to_show:
+                    page_num = b.evidence.page_number if b.evidence else "N/A"
+                    paper_context_str += f"- {b.compound_id}: {b.assay_type} vs {b.target or b.cell_line} = {b.value} {b.unit} [Page {page_num}]\n"
+
+            # Relevant synthetic conditions & yields
             if analysis.conditions:
+                matched_conds = [
+                    c for c in analysis.conditions
+                    if any(w in q_lower for w in ["yield", "solvent", "catalyst", "temp", "reaction", "synthesis", "%"])
+                ]
+                conds_to_show = matched_conds[:4] if matched_conds else analysis.conditions[:3]
                 paper_context_str += "KEY SYNTHETIC CONDITIONS & YIELDS:\n"
-                for cond in analysis.conditions[:3]:
-                    paper_context_str += f"- {cond.reaction_step}: Solvent {cond.solvent}, Temp {cond.temperature}, Catalyst {cond.catalyst}, Yield {cond.yield_reported or 'N/A'} [Page {cond.evidence.page_number}]\n"
+                for cond in conds_to_show:
+                    page_num = cond.evidence.page_number if cond.evidence else "N/A"
+                    paper_context_str += f"- {cond.reaction_step}: Solvent {cond.solvent}, Temp {cond.temperature}, Catalyst {cond.catalyst}, Yield {cond.yield_reported or 'N/A'} [Page {page_num}]\n"
+
+            # Relevant Extracted Table Rows
+            if getattr(analysis, "tables", None):
+                table_lines = []
+                for t in analysis.tables:
+                    for row in t.rows:
+                        row_s = " ".join([str(x).lower() for x in row])
+                        if any(term in q_lower for term in row_s.split() if len(term) >= 2 and (re.match(r"^\d+[a-z]?$", term) or term in ["egfr", "a549", "ic50", "yield", "ki"])):
+                            table_lines.append(f"  - Table {t.table_id} (Page {t.page_number}): {' | '.join(row)}")
+                if table_lines:
+                    paper_context_str += "MATCHING ASSAY TABLE ROWS:\n" + "\n".join(table_lines[:6]) + "\n"
+
             if analysis.conflicts_detected:
                 paper_context_str += "NOTABLE DISCREPANCIES / CONFLICTS DETECTED:\n"
                 for cf in analysis.conflicts_detected[:2]:
                     paper_context_str += f"- {cf.topic}: {cf.claim_a} vs {cf.claim_b}\n"
+
+        # Multi-Turn Conversation Memory Context
+        history_context_str = ""
+        if chat_history:
+            h_lines = []
+            for turn in chat_history[-3:]:
+                u_q = turn.get("question", "")
+                s_a = turn.get("simple_answer", "")
+                if u_q and s_a:
+                    h_lines.append(f"User: {u_q}\nChemBot: {s_a[:180]}")
+            if h_lines:
+                history_context_str = "RECENT CONVERSATION HISTORY (FOR PRONOUN AND CONTEXT RESOLUTION):\n" + "\n---\n".join(h_lines) + "\n\n"
 
         prompt = f"""You are ChemBot, an expert friendly multilingual chemistry assistant and mentor.
 The user wants a PROPER, SIMPLE, CLEAR, AND EASY-TO-UNDERSTAND answer to their chemistry question.
@@ -259,7 +347,10 @@ CRITICAL INSTRUCTIONS:
 1. TARGET LANGUAGE: You MUST provide your entire answer in {lang_name} ({native_name}).
 2. SIMPLICITY LEVEL: {simplicity_level}. Use everyday, plain language. Avoid dense, impenetrable academic jargon.
 3. ACCURACY & METRIC PRECISION: Be scientifically accurate with exact numbers and metrics. Strictly distinguish between enzymatic IC50, cellular growth inhibition GI50/CC50, and antimicrobial MIC. Never confuse a cell line metric (like A549 GI50) with an enzyme target metric (like EGFR IC50).
-4. STRUCTURE: You MUST organize your response exactly into the following 4 sections using these exact headers:
+4. CHEMICAL NOMENCLATURE & METRIC PRESERVATION:
+   - DO NOT phonetically translate or alter chemical formulas (e.g. Pd(OAc)2, DMSO, CDCl3, H2O), IUPAC or standard chemical names, compound labels (e.g. 'Compound 3b', '4a'), target proteins (e.g. EGFR, CDK4, HER2), cell lines (e.g. A549, HeLa, Vero), or scientific units (nM, µM, mg/kg, °C, %).
+   - Keep all chemical formulas, compound IDs, targets, and units in their exact standard international scientific alphanumeric notation, even while explaining concepts fluently in {lang_name}.
+5. STRUCTURE: You MUST organize your response exactly into the following 4 sections using these exact headers:
 
 ### {headers['simple_title']}
 (A friendly 2-3 sentence overview that answers the user's question directly in simple words so anyone can understand it).
@@ -271,21 +362,25 @@ CRITICAL INSTRUCTIONS:
 (An intuitive everyday analogy or real-world practical explanation of why this matters, e.g., how the drug works like a key in a lock, or why high yield saves cost).
 
 ### {headers['source_title']}
-(Grounded page citation from the paper if available, or a note clarifying general chemistry context).
+(Grounded page citation from the paper if available {f'[e.g. {top_citations_ref}]' if top_citations_ref else ''}, or a note clarifying general chemistry context).
 
-DOCUMENT CONTEXT:
+{history_context_str}DOCUMENT CONTEXT & VERIFIED EXTRACTED DATA:
 {paper_context_str}
+
+RETRIEVED DOCUMENT PASSAGES:
+{retrieved_passages_str if retrieved_passages_str else "No direct passage match; rely on verified extracted data and general chemistry mentoring."}
 
 USER'S QUESTION:
 {query}
 """
-        response = self.client.models.generate_content(
-            model="gemini-3.8-flash",
+        response = generate_content_with_fallback(
+            client=self.client,
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.25,
                 max_output_tokens=1400
-            )
+            ),
+            models=AVAILABLE_GEMINI_MODELS
         )
         if not response or not response.text:
             return None
@@ -305,7 +400,7 @@ USER'S QUESTION:
             simple_answer=simple_ans or text[:250],
             key_facts=facts or ["Key chemical parameters extracted from verified literature."],
             why_it_matters=meaning or "Explains practical chemistry relevance.",
-            evidence_source=source or "Literature Grounding",
+            evidence_source=source or (top_citations_ref if top_citations_ref else "Literature Grounding"),
             full_formatted_text=text,
             model_used="gemini-3.8-flash"
         )
@@ -318,7 +413,8 @@ USER'S QUESTION:
         headers: Dict[str, str],
         analysis: Optional[PaperAnalysisResult],
         pages: Optional[List[PageContent]],
-        simplicity_level: str
+        simplicity_level: str,
+        engine: Optional[Any] = None
     ) -> MultilingualBotResponse:
         """
         High-fidelity local multilingual reasoning engine.
@@ -330,8 +426,9 @@ USER'S QUESTION:
         is_lead = any(w in q_lower for w in [
             "lead", "best", "active", "most active", "potency", "ic50", "inhibitor",
             "ഏറ്റവും", "പ്രധാന", "യൗഗികം", "കോമ്പൗണ്ട്", "വീര്യം", "सक्रिय", "यौगिक",
-            "வீரியம்", "மூலக்கூறு", "beste", "aktivste", "compuesto líder", "plus actif"
-        ])
+            "வீரியம்", "மூலக்கூறு", "beste", "aktivste", "compuesto líder", "plus actif",
+            "compound", "derivative", "analog"
+        ]) or bool(re.search(r"\b([0-9]+[a-z]?|[a-z][0-9]+)\b", q_lower))
         is_yield = any(w in q_lower for w in [
             "yield", "percent", "reaction", "catalyst", "solvent", "synthesis", "coupling",
             "temperature", "യീൽഡ്", "റിയാക്ഷൻ", "തയ്യാറാക്കൽ", "നിർമ്മാണം", "उत्पाद",
@@ -352,15 +449,22 @@ USER'S QUESTION:
             "ic50 क्या है", "ic50 என்றால் என்ன", "was bedeutet ic50", "qué es ic50"
         ])
 
+        is_author = any(w in q_lower for w in [
+            "author", "authors", "who wrote", "researcher", "who are the authors",
+            "രചയിതാവ്", "എഴുതിയത്", "लेखक", "ஆசிரியர்", "auteur", "autor"
+        ])
+
         # Content generation depending on topic and context
-        if is_ic50_concept:
+        if is_author and analysis and analysis.metadata:
+            resp_data = self._generate_author_response(lang_code, analysis.metadata)
+        elif is_ic50_concept:
             resp_data = self._generate_ic50_concept_response(lang_code)
         elif is_conflict and analysis and analysis.conflicts_detected:
             resp_data = self._generate_conflict_response(lang_code, analysis.conflicts_detected[0])
         elif is_yield and analysis and analysis.conditions:
             resp_data = self._generate_yield_response(lang_code, analysis.conditions)
         elif is_lead and analysis and (analysis.bioactivities or analysis.compounds):
-            resp_data = self._generate_lead_response(lang_code, analysis)
+            resp_data = self._generate_lead_response(lang_code, analysis, query=query)
         elif is_mechanism and analysis:
             resp_data = self._generate_mechanism_response(lang_code, analysis)
         elif analysis:
@@ -404,20 +508,31 @@ USER'S QUESTION:
     # Localized Generator Templates (Native, Plain Language)
     # -------------------------------------------------------------
 
-    def _generate_lead_response(self, lang: str, analysis: PaperAnalysisResult) -> Dict[str, Any]:
-        """Generates simple explanation of the most active/lead compound."""
+    def _generate_lead_response(self, lang: str, analysis: PaperAnalysisResult, query: str = "") -> Dict[str, Any]:
+        """Generates simple explanation of the most active/lead compound or specific query-requested compound."""
         best_bio = None
         min_val = float("inf")
-        for b in analysis.bioactivities:
-            try:
-                num = float(re.findall(r"(\d+(?:\.\d+)?)", b.value)[0])
-                if "µm" in b.unit.lower() or "um" in b.unit.lower():
-                    num *= 1000.0
-                if num < min_val:
-                    min_val = num
+        q_lower = query.lower() if query else ""
+
+        # First, check if user specifically asked about a distinct compound ID (e.g. 3b, 4c, Compound 5a)
+        if q_lower:
+            for b in analysis.bioactivities:
+                c_id = (b.compound_id or "").lower()
+                if c_id and (c_id in q_lower or (re.search(r"\b" + re.escape(c_id) + r"\b", q_lower))):
                     best_bio = b
-            except Exception:
-                continue
+                    break
+
+        if not best_bio:
+            for b in analysis.bioactivities:
+                try:
+                    num = float(re.findall(r"(\d+(?:\.\d+)?)", b.value)[0])
+                    if "µm" in b.unit.lower() or "um" in b.unit.lower():
+                        num *= 1000.0
+                    if num < min_val:
+                        min_val = num
+                        best_bio = b
+                except Exception:
+                    continue
 
         lead_name = best_bio.compound_id if best_bio and best_bio.compound_id else (analysis.compounds[0].name if analysis.compounds else "Lead Compound")
         metric_label = best_bio.assay_type if best_bio and best_bio.assay_type else "Potency"
@@ -969,6 +1084,84 @@ USER'S QUESTION:
                 ],
                 "meaning": "Like switching off the master power switch in a rogue factory, this molecule shuts down the chemical signals driving cancer cell division.",
                 "source": f"Executive Synthesis: \"{summary_snip}\""
+            }
+        }
+    def _generate_author_response(self, lang: str, meta: PaperMetadata) -> Dict[str, Any]:
+        """Explains who authored the paper simply in the target language."""
+        authors = meta.authors or "Not specified"
+        title = meta.title or "Uploaded Paper"
+        doi = meta.journal_or_doi or "N/A"
+
+        templates = {
+            "ml": {
+                "simple": f"ഈ ഗവേഷണ പ്രബന്ധം (**{title}**) രചിച്ചിരിക്കുന്നത് **{authors}** ആണ്.",
+                "facts": [
+                    f"**രചയിതാക്കൾ (Authors):** {authors}",
+                    f"**ലേഖനത്തിന്റെ പേര്:** {title}",
+                    f"**DOI / ഉറവിടം:** {doi}"
+                ],
+                "meaning": "ഈ ഗവേഷണത്തിലെ എല്ലാ പരീക്ഷണങ്ങളും കണ്ടെത്തലുകളും ഈ ശാസ്ത്രജ്ഞർ നേതൃത്വം നൽകി നടത്തിയതാണ്.",
+                "source": f"രേഖയുടെ ആദ്യ പേജ് (Page 1) ലേഖകരുടെ വിശദാംശങ്ങൾ."
+            },
+            "hi": {
+                "simple": f"इस शोध पत्र (**{title}**) के लेखक **{authors}** हैं।",
+                "facts": [
+                    f"**लेखक (Authors):** {authors}",
+                    f"**शोध पत्र का शीर्षक:** {title}",
+                    f"**DOI / संदर्भ:** {doi}"
+                ],
+                "meaning": "यह शोध और इसके तहत किए गए सभी प्रयोग इन वैज्ञानिकों की टीम द्वारा संचालित किए गए हैं।",
+                "source": f"दस्तावेज़ का पृष्ठ 1 (Page 1): लेखक विवरण।"
+            },
+            "ta": {
+                "simple": f"இந்த ஆய்வுக் கட்டுரையின் (**{title}**) ஆசிரியர்கள் **{authors}** ஆவர்.",
+                "facts": [
+                    f"**ஆசிரியர்கள்:** {authors}",
+                    f"**தலைப்பு:** {title}",
+                    f"**DOI:** {doi}"
+                ],
+                "meaning": "இந்த ஆய்வை முன்னெடுத்துச் சென்று முடிவுகளை வெளியிட்டவர்கள் இந்த ஆராய்ச்சியாளர்கள்.",
+                "source": f"ஆவணத்தின் முதல் பக்கம்: ஆசிரியர்களின் தகவல்."
+            },
+            "de": {
+                "simple": f"Die Autoren dieser wissenschaftlichen Arbeit (**{title}**) sind **{authors}**.",
+                "facts": [
+                    f"**Autoren:** {authors}",
+                    f"**Titel:** {title}",
+                    f"**DOI / Quelle:** {doi}"
+                ],
+                "meaning": "Diese Forschungsgruppe hat die Synthesen und biologischen Tests durchgeführt.",
+                "source": f"Dokument Seite 1: Autorenangaben."
+            },
+            "es": {
+                "simple": f"Los autores de este artículo de investigación (**{title}**) son **{authors}**.",
+                "facts": [
+                    f"**Autores:** {authors}",
+                    f"**Título:** {title}",
+                    f"**DOI / Revista:** {doi}"
+                ],
+                "meaning": "Este equipo de investigación diseñó y llevó a cabo los experimentos reportados.",
+                "source": f"Página 1 del documento: Lista de autores."
+            },
+            "fr": {
+                "simple": f"Les auteurs de cet article de recherche (**{title}**) sont **{authors}**.",
+                "facts": [
+                    f"**Auteurs:** {authors}",
+                    f"**Titre:** {title}",
+                    f"**DOI / Source:** {doi}"
+                ],
+                "meaning": "Cette équipe de chercheurs a dirigé les travaux de synthèse et d'évaluation.",
+                "source": f"Page 1 du document: Métadonnées des auteurs."
+            },
+            "en": {
+                "simple": f"The authors of this research publication (**{title}**) are **{authors}**.",
+                "facts": [
+                    f"**Authors:** {authors}",
+                    f"**Manuscript Title:** {title}",
+                    f"**DOI / Journal:** {doi}"
+                ],
+                "meaning": "This research team designed the chemical scaffolds and conducted the biological evaluations described in the paper.",
+                "source": f"Page 1 Document Header: Author Attribution."
             }
         }
         return templates.get(lang, templates["en"])

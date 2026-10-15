@@ -1275,7 +1275,9 @@ def render_floating_round_chatbot(
                             analysis=analysis,
                             pages=pages,
                             language_choice="Auto-Detect",
-                            simplicity_level="Simple & Everyday"
+                            simplicity_level="Simple & Everyday",
+                            engine=engine,
+                            chat_history=st.session_state.chembot_chat_history[-3:] if st.session_state.chembot_chat_history else None
                         )
                         new_idx = len(st.session_state.chembot_chat_history)
                         st.session_state.chembot_chat_history.append({

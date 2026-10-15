@@ -1,0 +1,34 @@
+[
+    {
+        "id": "P2_Q001",
+        "category": "synthesis",
+        "question": "What was the isolated yield of Compound 5c in Table 1?",
+        "expected_answer": "71%",
+        "expected_status": "found",
+        "compound": "5c",
+        "target": null,
+        "metric": "yield",
+        "value": 71.0,
+        "unit": "%",
+        "expected_page": 2,
+        "expected_section": "Results and Discussion",
+        "evidence_keywords": ["5c", "71%", "isolated yield", "Table 1"],
+        "relevant_chunk_ids": []
+    },
+    {
+        "id": "P2_Q002",
+        "category": "conflict",
+        "question": "What was the reported yield of Compound 5c across the manuscript?",
+        "expected_answer": "88% yield was reported in the abstract while 71% isolated yield was reported in Table 1, Table 2, and the experimental section (88% represented crude NMR conversion).",
+        "expected_status": "conflicting",
+        "compound": "5c",
+        "target": null,
+        "metric": "yield",
+        "value": 71.0,
+        "unit": "%",
+        "expected_page": 2,
+        "expected_section": "Results and Discussion",
+        "evidence_keywords": ["5c", "88%", "71%", "yield", "NMR conversion"],
+        "relevant_chunk_ids": []
+    }
+]

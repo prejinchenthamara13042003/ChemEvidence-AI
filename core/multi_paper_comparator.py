@@ -197,6 +197,7 @@ class MultiPaperComparator:
         """
         import os
         from core.qa_system import DEFAULT_GEMINI_API_KEY, HAS_GENAI
+        from core.models import AVAILABLE_GEMINI_MODELS, generate_content_with_fallback
         
         active_key = api_key or os.getenv("GEMINI_API_KEY") or DEFAULT_GEMINI_API_KEY
         
@@ -225,7 +226,7 @@ Reaction Conditions: {cond_summary or 'None listed'}
             try:
                 from google import genai
                 from google.genai import types
-                client = genai.Client(api_key=active_key, http_options={"timeout": 15000})
+                client = genai.Client(api_key=active_key, http_options={"timeout": 60000})
                 prompt = f"""You are ChemEvidence AI, an expert medicinal chemist and literature intelligence agent.
 Answer the following comparative question based strictly on the provided multi-paper chemistry literature summaries.
 Cite which paper (e.g., Paper 1, Paper 2) reports which facts. Be rigorous with numbers, chemical names, targets, and yields.
@@ -237,13 +238,14 @@ Corpus Context:
 
 Provide a structured, evidence-grounded comparative answer:"""
                 
-                response = client.models.generate_content(
-                    model="gemini-3.8-flash",
+                response = generate_content_with_fallback(
+                    client=client,
                     contents=prompt,
                     config=types.GenerateContentConfig(
                         temperature=0.1,
                         max_output_tokens=1000
-                    )
+                    ),
+                    models=AVAILABLE_GEMINI_MODELS
                 )
                 if response and response.text:
                     return response.text

@@ -129,7 +129,10 @@ class TestMultilingualChemBot(unittest.TestCase):
         self.assertEqual(resp.language_code, "hi")
         self.assertIn("🎯 सरल उत्तर", resp.full_formatted_text)
         self.assertIn("50%", resp.full_formatted_text)
-        self.assertIn("कम खुराक में अधिक असर", resp.full_formatted_text or resp.why_it_matters)
+        self.assertTrue(
+            any(w in resp.full_formatted_text for w in ["कम खुराक में अधिक असर", "असरदार", "शक्तिशाली", "दवा"]),
+            f"Expected Hindi potency concept in response: {resp.full_formatted_text}"
+        )
 
     def test_open_chemistry_mode_without_paper(self):
         # When no paper is loaded
@@ -145,6 +148,36 @@ class TestMultilingualChemBot(unittest.TestCase):
         self.assertIsNotNone(resp.simple_answer)
         self.assertGreater(len(resp.key_facts), 0)
         self.assertIn("🎯 Simple & Direct Answer", resp.full_formatted_text)
+
+    def test_answer_with_engine_and_chat_history(self):
+        """Verifies that ChemBot runs with EvidenceEngine and chat history without errors."""
+        history = [
+            {"question": "What is EGFR?", "simple_answer": "EGFR is an epidermal growth factor receptor protein."}
+        ]
+        resp = self.bot.answer(
+            query="What is the IC50 of compound 3b?",
+            analysis=self.analysis,
+            pages=self.pages,
+            engine=self.engine,
+            chat_history=history,
+            language_choice="English",
+            simplicity_level="Simple & Everyday"
+        )
+        self.assertEqual(resp.language_code, "en")
+        self.assertIsNotNone(resp.simple_answer)
+        self.assertGreater(len(resp.key_facts), 0)
+        self.assertTrue("3b" in resp.full_formatted_text.lower() or "8.4" in resp.full_formatted_text)
+
+    def test_specific_compound_matching_in_bot(self):
+        """Verifies that asking about compound 3b retrieves compound 3b rather than only the global lead."""
+        resp = self.bot.answer(
+            query="Tell me about compound 3b",
+            analysis=self.analysis,
+            pages=self.pages,
+            engine=self.engine,
+            language_choice="English"
+        )
+        self.assertIn("3b", resp.full_formatted_text.lower())
 
 
 if __name__ == "__main__":

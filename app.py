@@ -18,6 +18,7 @@ import re
 import json
 import io
 import html
+import textwrap
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
@@ -2438,6 +2439,436 @@ def render_export_section(analysis: PaperAnalysisResult, meta: PaperMetadata, ke
         )
 
 
+def render_evaluation_dashboard(key_prefix: str = "eval"):
+    """
+    Renders the quantitative Evaluation & Verification Framework dashboard.
+    Evaluates: Retrieval Quality, Answer Correctness, Chemistry Factual Accuracy,
+    Citation Validity, Grounding/Faithfulness, Absence/Conflict Detection, Latency.
+    """
+    import plotly.express as px
+    import plotly.graph_objects as go
+
+    st.markdown("### 📊 Research-Grade Evaluation & Benchmark Dashboard")
+    st.markdown(
+        "Empirical multi-axial evaluation assessing Retrieval Performance, Answer Correctness, "
+        "Chemistry-Specific Factual Precision, Evidence Grounding, and Latency."
+    )
+
+    results_dir = os.path.join(os.path.dirname(__file__), "evaluation", "results")
+    summary_path = os.path.join(results_dir, "evaluation_summary.json")
+    csv_path = os.path.join(results_dir, "per_question_results.csv")
+
+    # If results do not exist, show exact requested message
+    if not os.path.exists(summary_path):
+        st.warning("⚠️ No evaluation results available. Run a benchmark evaluation first.")
+        st.info(
+            "To generate evaluation results, run the benchmark runner from your terminal:\n\n"
+            "```bash\n"
+            "python -m evaluation.benchmark_runner \\\n"
+            "    --paper sample_papers/paper1_kinase_inhibitors.txt \\\n"
+            "    --benchmark evaluation/ground_truth/single_paper_benchmark.json\n"
+            "```"
+        )
+
+        with st.expander("🚀 Run Benchmark Evaluation from UI", expanded=True):
+            st.markdown("Execute the automated evaluation framework on a test paper:")
+            col_b1, col_b2 = st.columns([2, 1])
+            with col_b1:
+                ui_paper_path = st.text_input(
+                    "Paper Path (PDF or TXT):",
+                    value="sample_papers/paper1_kinase_inhibitors.txt",
+                    key=f"{key_prefix}_ui_paper"
+                )
+            with col_b2:
+                ui_bench_path = st.text_input(
+                    "Benchmark JSON Path:",
+                    value="evaluation/ground_truth/single_paper_benchmark.json",
+                    key=f"{key_prefix}_ui_bench"
+                )
+
+            ui_use_gemini = st.checkbox(
+                "Use Gemini LLM (requires API Key)",
+                value=bool(os.getenv("GEMINI_API_KEY", "")),
+                key=f"{key_prefix}_ui_gemini"
+            )
+
+            active_eval_key = os.getenv("GEMINI_API_KEY") or DEFAULT_BACKEND_KEY or st.session_state.get("gemini_api_key_input", "")
+            if st.button("▶️ Execute Benchmark Now", key=f"{key_prefix}_btn_run_empty", type="primary"):
+                with st.spinner("Running quantitative benchmark evaluation..."):
+                    try:
+                        from evaluation.benchmark_runner import BenchmarkRunner
+                        runner = BenchmarkRunner(
+                            paper_path=ui_paper_path,
+                            benchmark_path=ui_bench_path,
+                            output_dir=results_dir,
+                            use_gemini=ui_use_gemini,
+                            use_local_only=not ui_use_gemini,
+                            api_key=active_eval_key
+                        )
+                        eval_res = runner.run()
+                        st.success(f"✅ Benchmark Complete! Score: {eval_res.composite_benchmark_score:.1f}%")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Benchmark Execution Failed: {str(e)}")
+        return
+
+    # Load results
+    try:
+        with open(summary_path, "r", encoding="utf-8") as f:
+            summary = json.load(f)
+    except Exception as e:
+        st.error(f"Failed to read evaluation summary: {str(e)}")
+        return
+
+    retrieval = summary.get("retrieval_metrics", {})
+    answer = summary.get("answer_metrics", {})
+    chem = summary.get("chemistry_metrics", {})
+    citation = summary.get("citation_metrics", {})
+    rel = summary.get("reliability_metrics", {})
+    latency = summary.get("latency_metrics", {})
+    confusion = summary.get("confusion_matrix", {})
+    comp_score = summary.get("composite_benchmark_score", 0.0)
+    comp_expl = summary.get("composite_weighting_explanation", "")
+    per_q = summary.get("per_question_results", [])
+    total_q = summary.get("total_questions", len(per_q))
+
+    # Header Card with Composite Score & Summary Bar
+    header_html = textwrap.dedent(f"""
+        <div style="background: linear-gradient(135deg, rgba(183, 110, 121, 0.12), rgba(159, 62, 84, 0.06)); 
+                    border: 1px solid rgba(183, 110, 121, 0.3); border-radius: 10px; padding: 16px 20px; margin-bottom: 22px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+                <div>
+                    <h3 style="margin: 0; color: #5B2B3D;">Overall Composite Benchmark Score: <b>{comp_score:.1f}%</b></h3>
+                    <p style="margin: 4px 0 0 0; color: #555; font-size: 0.88rem;">
+                        <b>Dataset:</b> {total_q} benchmark test questions &nbsp;|&nbsp; 
+                        <b>Ground-Truth Source:</b> Single-Paper Benchmark &nbsp;|&nbsp; 
+                        <b>Methodology:</b> Deterministic Multi-Axial Scorer
+                    </p>
+                    <p style="margin: 4px 0 0 0; color: #777; font-size: 0.82rem; font-style: italic;">
+                        {comp_expl}
+                    </p>
+                </div>
+            </div>
+        </div>
+    """).strip()
+    st.markdown(header_html, unsafe_allow_html=True)
+
+    # -------------------------------------------------------------------------
+    # SECTION A — Overall Metrics
+    # -------------------------------------------------------------------------
+    st.markdown("#### 📌 SECTION A — Overall Performance Metrics")
+
+    col_g1, col_g2, col_g3 = st.columns(3)
+    with col_g1:
+        with st.container(border=True):
+            st.metric("🎯 Retrieval Recall@5", f"{retrieval.get('recall@5', 0)*100:.1f}%")
+            st.caption("Relevant manuscript chunks retrieved in top 5")
+    with col_g2:
+        with st.container(border=True):
+            st.metric("🎯 MRR (Mean Reciprocal Rank)", f"{retrieval.get('mrr', 0):.2f}")
+            st.caption("Rank of first relevant chunk (1.0 = top result)")
+    with col_g3:
+        with st.container(border=True):
+            st.metric("📝 Answer Token F1", f"{answer.get('token_f1', 0)*100:.1f}%")
+            st.caption("Token-level precision/recall vs expected answer")
+
+    col_g4, col_g5, col_g6 = st.columns(3)
+    with col_g4:
+        with st.container(border=True):
+            st.metric("⚗️ Numeric Accuracy", f"{chem.get('numeric_accuracy', 0)*100:.1f}%")
+            st.caption("Numeric match with unit conversions (87 nM = 0.087 µM)")
+    with col_g5:
+        with st.container(border=True):
+            st.metric("⚗️ Metric-Type Accuracy", f"{chem.get('metric_type_accuracy', 0)*100:.1f}%")
+            st.caption("Strict assay type matching (IC50 != GI50 != Ki)")
+    with col_g6:
+        with st.container(border=True):
+            st.metric("⚗️ Entity Accuracy", f"{chem.get('entity_accuracy', 0)*100:.1f}%")
+            st.caption("Correct chemical compound identification")
+
+    col_g7, col_g8, col_g9 = st.columns(3)
+    with col_g7:
+        with st.container(border=True):
+            st.metric("📜 Claim Faithfulness", f"{citation.get('faithfulness', 0)*100:.1f}%")
+            st.caption("Extracted factual claims backed by paper citations")
+    with col_g8:
+        with st.container(border=True):
+            st.metric("📑 Citation Accuracy", f"{citation.get('citation_accuracy', 0)*100:.1f}%")
+            st.caption("Verifiable quote existence in the source document")
+    with col_g9:
+        with st.container(border=True):
+            st.metric("⚠️ Unsupported Claim Rate", f"{rel.get('unsupported_claim_rate', 0)*100:.1f}%")
+            st.caption("Claims lacking supporting manuscript evidence")
+
+    col_g10, col_g11, col_g12 = st.columns(3)
+    with col_g10:
+        with st.container(border=True):
+            st.metric("🛡️ Absence Detection F1", f"{rel.get('absence_f1', 0)*100:.1f}%")
+            st.caption("Accurate rejection of unmentioned / missing facts")
+    with col_g11:
+        with st.container(border=True):
+            st.metric("🔍 Conflict Detection F1", f"{rel.get('conflict_f1', 0)*100:.1f}%")
+            st.caption("Identification of contradictory data in literature")
+    with col_g12:
+        with st.container(border=True):
+            st.metric("⏱️ Average Latency", f"{latency.get('mean_total_latency_ms', 0):.1f} ms")
+            st.caption("Mean end-to-end response generation time")
+
+    st.markdown("<hr style='margin: 20px 0; border: none; border-top: 1px solid #E8D8D8;'>", unsafe_allow_html=True)
+
+    # -------------------------------------------------------------------------
+    # SECTION B — Retrieval Performance & SECTION C — Chemistry Accuracy
+    # -------------------------------------------------------------------------
+    col_ret, col_chem = st.columns(2, gap="medium")
+
+    with col_ret:
+        st.markdown("#### 🎯 SECTION B — Retrieval Quality Across Top-K Cutoffs")
+        k_levels = [1, 3, 5, 10]
+        ret_records = []
+        for k in k_levels:
+            ret_records.append({"Top-K Depth": f"K={k}", "Score (%)": retrieval.get(f"precision@{k}", 0) * 100, "Metric": "Precision@K"})
+            ret_records.append({"Top-K Depth": f"K={k}", "Score (%)": retrieval.get(f"recall@{k}", 0) * 100, "Metric": "Recall@K"})
+            ret_records.append({"Top-K Depth": f"K={k}", "Score (%)": retrieval.get(f"hit_rate@{k}", 0) * 100, "Metric": "Hit Rate@K"})
+
+        df_ret = pd.DataFrame(ret_records)
+        fig_ret = px.bar(
+            df_ret,
+            x="Top-K Depth",
+            y="Score (%)",
+            color="Metric",
+            barmode="group",
+            color_discrete_sequence=["#B76E79", "#5B2B3D", "#D48C96"],
+            template="plotly_white",
+            height=340
+        )
+        fig_ret.update_layout(
+            yaxis_range=[0, 105],
+            yaxis_title="<b>Score (%)</b>",
+            paper_bgcolor="rgba(255, 255, 255, 0.9)",
+            plot_bgcolor="rgba(253, 242, 240, 0.35)",
+            margin=dict(l=35, r=20, t=30, b=30),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+        st.plotly_chart(fig_ret, use_container_width=True)
+
+    with col_chem:
+        st.markdown("#### ⚗️ SECTION C — Chemistry-Specific Factual Precision")
+        chem_items = [
+            {"Dimension": "Entity Accuracy", "Accuracy (%)": chem.get("entity_accuracy", 0) * 100},
+            {"Dimension": "Numeric Accuracy", "Accuracy (%)": chem.get("numeric_accuracy", 0) * 100},
+            {"Dimension": "Unit Accuracy", "Accuracy (%)": chem.get("unit_accuracy", 0) * 100},
+            {"Dimension": "Metric-Type Acc.", "Accuracy (%)": chem.get("metric_type_accuracy", 0) * 100},
+            {"Dimension": "Target Accuracy", "Accuracy (%)": chem.get("target_accuracy", 0) * 100},
+        ]
+        df_chem = pd.DataFrame(chem_items)
+        fig_chem = px.bar(
+            df_chem,
+            x="Dimension",
+            y="Accuracy (%)",
+            text="Accuracy (%)",
+            color="Dimension",
+            color_discrete_sequence=["#9F3E54", "#B76E79", "#7D3546", "#D48C96", "#5B2B3D"],
+            template="plotly_white",
+            height=340
+        )
+        fig_chem.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
+        fig_chem.update_layout(
+            yaxis_range=[0, 115],
+            showlegend=False,
+            yaxis_title="<b>Accuracy (%)</b>",
+            paper_bgcolor="rgba(255, 255, 255, 0.9)",
+            plot_bgcolor="rgba(253, 242, 240, 0.35)",
+            margin=dict(l=35, r=20, t=30, b=30)
+        )
+        st.plotly_chart(fig_chem, use_container_width=True)
+
+    st.markdown("<hr style='margin: 20px 0; border: none; border-top: 1px solid #E8D8D8;'>", unsafe_allow_html=True)
+
+    # -------------------------------------------------------------------------
+    # SECTION D — Reliability & SECTION E — Confusion Matrix
+    # -------------------------------------------------------------------------
+    col_rel, col_cm = st.columns([1, 1], gap="medium")
+
+    with col_rel:
+        st.markdown("#### 🛡️ SECTION D — Reliability & Evidence Grounding")
+
+        c_faith = citation.get("faithfulness", 0) * 100
+        c_acc = citation.get("citation_accuracy", 0) * 100
+        c_unsupp = rel.get("unsupported_claim_rate", 0) * 100
+        c_free = rel.get("hallucination_free_rate", 0) * 100
+
+        with st.container(border=True):
+            col_d1, col_d2 = st.columns([3, 1])
+            with col_d1:
+                st.markdown("**🛡️ Hallucination-Free Rate**")
+            with col_d2:
+                st.markdown(f"**`{c_free:.1f}%`**")
+            st.progress(min(max(c_free / 100.0, 0.0), 1.0))
+
+            st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
+
+            col_d3, col_d4 = st.columns([3, 1])
+            with col_d3:
+                st.markdown("**📜 Claim Faithfulness (Supported / Total)**")
+            with col_d4:
+                st.markdown(f"**`{c_faith:.1f}%`**")
+            st.progress(min(max(c_faith / 100.0, 0.0), 1.0))
+
+            st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
+
+            col_d5, col_d6 = st.columns([3, 1])
+            with col_d5:
+                st.markdown("**📑 Citation Grounding Accuracy (Valid Quotes)**")
+            with col_d6:
+                st.markdown(f"**`{c_acc:.1f}%`**")
+            st.progress(min(max(c_acc / 100.0, 0.0), 1.0))
+
+            st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
+
+            col_d7, col_d8 = st.columns([3, 1])
+            with col_d7:
+                st.markdown("**⚠️ Unsupported Claim Rate**")
+            with col_d8:
+                st.markdown(f"**`{c_unsupp:.1f}%`**")
+            st.progress(min(max(c_unsupp / 100.0, 0.0), 1.0))
+
+        st.caption("A claim is marked as unsupported if extracted chemical entities, values, or metrics cannot be verified in retrieved citations.")
+
+    with col_cm:
+        st.markdown("#### 🔄 SECTION E — Status Confusion Matrix (Found / Absent / Conflicting)")
+        labels = ["found", "absent", "conflicting"]
+        z_vals = [
+            [confusion.get(r, {}).get(c, 0) for c in labels]
+            for r in labels
+        ]
+
+        fig_cm = go.Figure(data=go.Heatmap(
+            z=z_vals,
+            x=[f"Pred: {c}" for c in labels],
+            y=[f"True: {r}" for r in labels],
+            colorscale="Burg",
+            text=z_vals,
+            texttemplate="<b>%{text}</b>",
+            textfont={"size": 15, "color": "white"},
+            showscale=False
+        ))
+        fig_cm.update_layout(
+            template="plotly_white",
+            height=260,
+            margin=dict(l=30, r=20, t=20, b=25),
+            paper_bgcolor="rgba(255, 255, 255, 0.9)",
+            plot_bgcolor="rgba(253, 242, 240, 0.35)",
+        )
+        st.plotly_chart(fig_cm, use_container_width=True)
+
+    st.markdown("<hr style='margin: 20px 0; border: none; border-top: 1px solid #E8D8D8;'>", unsafe_allow_html=True)
+
+    # -------------------------------------------------------------------------
+    # SECTION F — Per-question Results
+    # -------------------------------------------------------------------------
+    st.markdown("#### 📋 SECTION F — Per-Question Results & Diagnostics")
+
+    filter_col1, filter_col2 = st.columns([1.5, 2.5])
+    with filter_col1:
+        cat_filter = st.selectbox(
+            "Filter by Category:",
+            options=["All Categories"] + sorted(list(set([q.get("category", "general") for q in per_q]))),
+            key=f"{key_prefix}_cat_filter"
+        )
+    with filter_col2:
+        status_filter = st.radio(
+            "Filter by Status:",
+            options=["All", "Correct Status", "Incorrect Status"],
+            horizontal=True,
+            key=f"{key_prefix}_status_filter"
+        )
+
+    # Build display records
+    table_records = []
+    for q in per_q:
+        q_cat = q.get("category", "general")
+        is_stat_corr = q.get("is_status_correct", False)
+
+        if cat_filter != "All Categories" and q_cat != cat_filter:
+            continue
+        if status_filter == "Correct Status" and not is_stat_corr:
+            continue
+        if status_filter == "Incorrect Status" and is_stat_corr:
+            continue
+
+        table_records.append({
+            "Question ID": q.get("question_id", ""),
+            "Question": q.get("question", ""),
+            "Expected": q.get("expected_answer", ""),
+            "Predicted": (q.get("predicted_answer", "")[:100] + "...") if len(q.get("predicted_answer", "")) > 100 else q.get("predicted_answer", ""),
+            "Status": f"{q.get('predicted_status', '')} (exp: {q.get('expected_status', '')})",
+            "Correct?": "✅ Yes" if is_stat_corr and q.get("overall_chemistry_correct", True) else "❌ No",
+            "Citation Valid?": "✅ Valid" if q.get("citation_validity", 0) >= 0.8 else "⚠️ Low/None",
+            "Metric Correct?": "✅ Yes" if q.get("metric_type_correct", True) else "❌ No",
+            "Numeric Correct?": "✅ Yes" if q.get("numeric_correct", True) else "❌ No",
+            "Latency": f"{q.get('total_latency_ms', 0):.1f} ms",
+            "Notes": q.get("notes", "")
+        })
+
+    df_table = pd.DataFrame(table_records)
+    st.dataframe(df_table, use_container_width=True, hide_index=True)
+
+    # CSV Download Button
+    if os.path.exists(csv_path):
+        with open(csv_path, "r", encoding="utf-8") as f:
+            csv_data = f.read()
+        st.download_button(
+            label="📥 Export Per-Question Results (CSV)",
+            data=csv_data,
+            file_name="evaluation_per_question_results.csv",
+            mime="text/csv",
+            use_container_width=False,
+            key=f"{key_prefix}_dl_csv"
+        )
+
+    # Re-run benchmark expander
+    with st.expander("⚙️ Re-Run Quantitative Benchmark", expanded=False):
+        st.markdown("Execute a new benchmark run using custom parameters or papers:")
+        col_r1, col_r2 = st.columns([2, 1])
+        with col_r1:
+            run_paper = st.text_input(
+                "Paper Path (PDF or TXT):",
+                value="sample_papers/paper1_kinase_inhibitors.txt",
+                key=f"{key_prefix}_rerun_paper"
+            )
+        with col_r2:
+            run_bench = st.text_input(
+                "Benchmark JSON Path:",
+                value="evaluation/ground_truth/single_paper_benchmark.json",
+                key=f"{key_prefix}_rerun_bench"
+            )
+
+        run_gemini = st.checkbox(
+            "Use Gemini LLM (requires API Key)",
+            value=bool(os.getenv("GEMINI_API_KEY", "")),
+            key=f"{key_prefix}_rerun_gemini"
+        )
+
+        active_eval_key = os.getenv("GEMINI_API_KEY") or DEFAULT_BACKEND_KEY or st.session_state.get("gemini_api_key_input", "")
+        if st.button("▶️ Start Benchmark Run", key=f"{key_prefix}_btn_run_active", type="primary"):
+            with st.spinner("Running quantitative benchmark evaluation..."):
+                try:
+                    from evaluation.benchmark_runner import BenchmarkRunner
+                    runner = BenchmarkRunner(
+                        paper_path=run_paper,
+                        benchmark_path=run_bench,
+                        output_dir=results_dir,
+                        use_gemini=run_gemini,
+                        use_local_only=not run_gemini,
+                        api_key=active_eval_key
+                    )
+                    eval_res = runner.run()
+                    st.success(f"✅ Benchmark Complete! Score: {eval_res.composite_benchmark_score:.1f}%")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Benchmark Execution Failed: {str(e)}")
+
+
 # ---------------------------------------------------------
 # Workspace Layout Mode Switcher (Side-by-Side Split View vs Tabs)
 # ---------------------------------------------------------
@@ -2447,7 +2878,7 @@ with col_sw_mode:
         "Workspace View Layout:",
         [
             "🔍 Side-by-Side Split View (55% Document Reader | 45% Intelligence Suite)",
-            "📊 Multi-Tab Chemical Studio (Discovery, Tables, Reactions, SAR, Knowledge Graph, Audit, Q&A, Export)"
+            "📊 Multi-Tab Chemical Studio (Discovery, Tables, Reactions, SAR, Knowledge Graph, Audit, Q&A, Evaluation, Export)"
         ],
         index=0 if st.session_state.app_layout == "split" else 1,
         horizontal=True,
@@ -2502,7 +2933,8 @@ if st.session_state.app_layout == "split":
                 "⚗️ Reaction Pathways",
                 "📈 SAR Analytics",
                 "🌐 Knowledge Graph",
-                "🛡️ Anti-Hallucination Audit"
+                "🛡️ Anti-Hallucination Audit",
+                "📊 Evaluation"
             ],
             default="💬 Q&A Assistant",
             key="split_suite_view",
@@ -2524,6 +2956,8 @@ if st.session_state.app_layout == "split":
             render_knowledge_graph(analysis, key_prefix="split_kg")
         elif active_view == "🛡️ Anti-Hallucination Audit":
             render_anti_hallucination_audit(analysis, key_prefix="split_audit")
+        elif active_view == "📊 Evaluation":
+            render_evaluation_dashboard(key_prefix="split_eval")
 
     # Stop rendering studio tabs in split view
     st.stop()
@@ -2532,7 +2966,7 @@ if st.session_state.app_layout == "split":
 # ---------------------------------------------------------
 # Tabbed Navigation Ribbon (Multi-Tab Chemical Studio)
 # ---------------------------------------------------------
-tab_discovery, tab_tables, tab_reactions, tab_sar, tab_graph, tab_audit, tab_qa, tab_export = st.tabs([
+tab_discovery, tab_tables, tab_reactions, tab_sar, tab_graph, tab_audit, tab_qa, tab_eval, tab_export = st.tabs([
     "📊 Structured Discovery",
     "📋 Table Extraction",
     "⚗️ Reaction Pathways",
@@ -2540,6 +2974,7 @@ tab_discovery, tab_tables, tab_reactions, tab_sar, tab_graph, tab_audit, tab_qa,
     "🌐 Knowledge Graph",
     "🛡️ Anti-Hallucination Audit",
     "💬 Evidence Q&A",
+    "📊 Evaluation",
     "📑 Document & Export"
 ])
 
@@ -2563,6 +2998,9 @@ with tab_audit:
 
 with tab_qa:
     render_qa_section(pages, engine, analysis, api_key_input, key_prefix="studio_qa")
+
+with tab_eval:
+    render_evaluation_dashboard(key_prefix="studio_eval")
 
 with tab_export:
     render_export_section(analysis, meta, key_prefix="studio_export", pdf_bytes=pdf_bytes, pages=pages)

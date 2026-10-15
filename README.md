@@ -126,14 +126,148 @@ Thesis/
 │   ├── paper2_catalytic_synthesis_conflicts.txt & .pdf
 │   └── paper3_natural_product_sar.txt & .pdf
 │
-└── tests/                     # Automated test suite (29 unit tests across 6 test modules)
+├── evaluation/                # Quantitative Research-Grade Evaluation Framework
+│   ├── __init__.py            # Package exports
+│   ├── evaluator.py           # Unified multi-axial evaluation engine
+│   ├── benchmark_loader.py    # Benchmark case schema loader & validator
+│   ├── benchmark_runner.py    # CLI and programmatic benchmark execution runner
+│   ├── retrieval_metrics.py   # Precision@K, Recall@K, Hit Rate@K (K=1,3,5,10), MRR
+│   ├── answer_metrics.py      # Exact Match, Token F1, Normalized Accuracy
+│   ├── chemistry_metrics.py   # Entity, Target, Metric-Type, Numeric & Unit Accuracy
+│   ├── citation_metrics.py    # Citation Validity, Accuracy, Completeness, Faithfulness
+│   ├── reliability_metrics.py # Hallucination-Free, Unsupported Claim, Absence & Conflict F1
+│   ├── ground_truth/          # Benchmark ground-truth datasets
+│   │   ├── single_paper_benchmark.json # Real sample paper benchmark questions
+│   │   └── README.md          # Ground-truth contribution guide
+│   └── results/               # Empirical evaluation outputs (JSON & CSV)
+│       ├── evaluation_summary.json
+│       ├── per_question_results.csv
+│       └── metrics.csv
+│
+└── tests/                     # Automated test suite (57 unit tests across 7 test modules)
     ├── test_parser.py         # PDF parsing and metadata tests
     ├── test_evidence.py       # BM25 retrieval and quote verification tests
     ├── test_qa.py             # Q&A, absence detection, and conflict detection tests
     ├── test_advanced_features.py # Tables, reactions, SAR, graph, gaps, and multi-paper tests
     ├── test_chem_calc.py      # Chemical calculator tests
-    └── test_pdf_viewer_and_split_view.py # High-res PDF viewer, quote highlighting & split view tests
+    ├── test_pdf_viewer_and_split_view.py # High-res PDF viewer, quote highlighting & split view tests
+    └── test_evaluation_metrics.py # Evaluation framework metrics unit tests
 ```
+
+---
+
+## 📊 Quantitative Evaluation Framework
+
+The project includes an empirical, research-grade evaluation framework designed to rigorously benchmark RAG retrieval, question-answering accuracy, evidence grounding, and chemical factual consistency without relying on hard-coded or fabricated metrics.
+
+### 1. Evaluated Dimensions & Metrics
+
+| Dimension | Metric | Formula / Definition |
+|---|---|---|
+| **Retrieval Quality** | **Precision@K** | $\frac{\text{Relevant Chunks in Top K}}{K}$ (evaluated at $K \in \{1, 3, 5, 10\}$) |
+| | **Recall@K** | $\frac{\text{Relevant Chunks in Top K}}{\text{Total Relevant Chunks}}$ |
+| | **Hit Rate@K** | $1$ if at least one relevant chunk is retrieved in top $K$, else $0$ |
+| | **MRR** | Mean Reciprocal Rank: $\frac{1}{\text{rank of first relevant chunk}}$ |
+| **Answer Correctness** | **Exact Match (EM)** | $1.0$ if prediction exactly equals ground-truth answer after normalization |
+| | **Token F1** | Harmonic mean of token-level precision and recall |
+| | **Normalized Accuracy** | Factual string match with chemical Unicode subscript (`IC₅₀` $\rightarrow$ `IC50`), micro symbol (`µM` $\rightarrow$ `uM`), and whitespace normalization |
+| **Chemistry Precision** | **Entity Accuracy** | Evaluates compound identity match (strictly distinguishes e.g. `5a` vs `5d`) |
+| | **Target Accuracy** | Evaluates biological macromolecule target alignment (e.g. `EGFR` vs `VEGFR2`) |
+| | **Metric-Type Accuracy** | Enforces assay type distinction: $\text{IC}_{50} \neq \text{GI}_{50} \neq \text{EC}_{50} \neq K_i \neq K_d \neq \text{MIC}$ |
+| | **Numeric Accuracy** | Numerical equivalence accounting for unit conversions ($87\text{ nM} \equiv 0.087\ \mu\text{M}$) |
+| | **Unit Accuracy** | Unit scale match or valid convertible dimension |
+| **Citation & Grounding** | **Citation Validity** | Fraction of citations whose quoted excerpts verifiably exist in the source text |
+| | **Citation Accuracy** | Verification that cited excerpt directly corroborates the factual claim |
+| | **Citation Completeness**| Proportion of extracted factual assertions accompanied by citations |
+| | **Faithfulness** | $\frac{\text{Supported Claims}}{\text{Total Extracted Claims}}$ |
+| **Reliability & Hallucination** | **Unsupported Claim Rate** | $\frac{\text{Unsupported Claims}}{\text{Total Claims}}$ |
+| | **Hallucination-Free Rate**| $1.0 - \text{Unsupported Claim Rate}$ |
+| | **Absence F1** | Precision, Recall, and F1 for unmentioned or negative questions |
+| | **Conflict F1** | Precision, Recall, and F1 for contradictory/discrepant literature findings |
+| | **Confusion Matrix** | $3 \times 3$ classification matrix for `found`, `absent`, and `conflicting` |
+| **Latency & Performance**| **Latency Metrics** | Mean, Median, Min, Max, and P95 latency (ms) for retrieval and generation |
+| **Composite Score** | **Composite Benchmark** | $0.25 \times \text{Chemistry} + 0.25 \times \text{Answer F1} + 0.20 \times \text{Hit@5} + 0.15 \times \text{Citation Acc} + 0.15 \times \text{Hallucination-Free}$ |
+
+---
+
+### 2. Benchmark Ground-Truth Schema
+
+Benchmark datasets are defined as structured JSON files under `evaluation/ground_truth/`.
+
+Each test case contains:
+```json
+{
+  "id": "Q001",
+  "category": "bioactivity",
+  "question": "What is the IC50 value of Compound 3b against EGFR kinase?",
+  "expected_answer": "8.4 ± 0.6 nM",
+  "expected_status": "found",
+  "compound": "Compound 3b",
+  "target": "EGFR",
+  "metric": "IC50",
+  "value": 8.4,
+  "unit": "nM",
+  "expected_page": 3,
+  "expected_section": "Biological Evaluation",
+  "evidence_keywords": ["Compound 3b", "8.4", "EGFR", "nM"],
+  "relevant_chunk_ids": []
+}
+```
+
+Negative/Absence cases:
+```json
+{
+  "id": "Q007",
+  "category": "absence",
+  "question": "What was the Phase III human clinical trial dose of Compound 3b?",
+  "expected_answer": "No supporting evidence was found in the uploaded manuscript.",
+  "expected_status": "absent"
+}
+```
+
+Contradiction/Conflict cases:
+```json
+{
+  "id": "Q009",
+  "category": "conflict",
+  "question": "What was the isolated yield of compound 4b?",
+  "expected_answer": "Discrepancy reported: 45% in Scheme 2 vs 88% in Table 2.",
+  "expected_status": "conflicting"
+}
+```
+
+---
+
+### 3. How to Run an Evaluation Benchmark
+
+#### Via CLI:
+```bash
+# Run against a paper with local deterministic offline engine
+python3 -m evaluation.benchmark_runner \
+    --paper sample_papers/paper1_kinase_inhibitors.txt \
+    --benchmark evaluation/ground_truth/single_paper_benchmark.json
+
+# Run with Gemini LLM reasoning (requires GEMINI_API_KEY)
+python3 -m evaluation.benchmark_runner \
+    --paper sample_papers/paper1_kinase_inhibitors.txt \
+    --benchmark evaluation/ground_truth/single_paper_benchmark.json \
+    --use-gemini
+```
+
+#### Via Streamlit Web Interface:
+1. Launch the application: `streamlit run app.py`
+2. Open the **📊 Evaluation** tab in the Studio ribbon (or select "📊 Evaluation" in the Side-by-Side split view).
+3. Inspect live metric cards, top-K retrieval charts, chemistry accuracy breakdowns, reliability gauges, status confusion matrix, and per-question diagnostics.
+4. Click **🚀 Run Benchmark Evaluation** to execute a benchmark run directly on any uploaded or sample paper.
+
+---
+
+### 4. Evaluation Output Files
+
+Every benchmark run exports persistent empirical results into `evaluation/results/`:
+- **`evaluation_summary.json`**: Complete metrics, confusion matrix, and composite scores.
+- **`per_question_results.csv`**: Granular question-level predictions, latencies, and validation flags.
+- **`metrics.csv`**: Flattened metric key-value table for plotting and automated CI regression tracking.
 
 ---
 
@@ -166,7 +300,8 @@ Open your browser at `http://localhost:8501`.
 python3 demo_cli.py
 ```
 
-### 6. Run Automated Test Suite (18 Tests)
+### 6. Run the Automated Test Suite (57 Tests)
 ```bash
 python3 -m unittest discover tests/ -v
 ```
+

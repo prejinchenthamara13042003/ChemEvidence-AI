@@ -22,7 +22,9 @@ from core.models import (
     Methodology,
     SignificantFinding,
     ConflictAlert,
-    EvidenceCitation
+    EvidenceCitation,
+    AVAILABLE_GEMINI_MODELS,
+    generate_content_with_fallback
 )
 
 try:
@@ -54,7 +56,7 @@ class ChemistryExtractor:
             self.client = None
             if self.api_key and HAS_GENAI:
                 try:
-                    self.client = genai.Client(api_key=self.api_key, http_options={"timeout": 15000})
+                    self.client = genai.Client(api_key=self.api_key, http_options={"timeout": 60000})
                 except Exception:
                     self.client = None
 
@@ -244,13 +246,14 @@ RESEARCH PAPER TEXT:
 {paper_text_with_pages[:60000]}
 """
 
-        response = self.client.models.generate_content(
-            model="gemini-3.8-flash",
+        response = generate_content_with_fallback(
+            client=self.client,
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 temperature=0.1
-            )
+            ),
+            models=AVAILABLE_GEMINI_MODELS
         )
 
         data = json.loads(response.text)

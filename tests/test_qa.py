@@ -167,6 +167,103 @@ class TestQASystem(unittest.TestCase):
         # Ensure it does not report kinase or EGFR
         self.assertNotIn("EGFR", resp.answer)
 
+    def test_authors_query(self):
+        """Verifies that author-related questions correctly return the authors with Page 1 citation."""
+        txt_path = "/Users/prejin/Thesis/sample_papers/paper1_kinase_inhibitors.txt"
+        with open(txt_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        pages = DocumentParser.parse_text_content(content)
+        meta = DocumentParser.extract_metadata(pages)
+        engine = EvidenceEngine(pages)
+        extractor = ChemistryExtractor(use_local_only=True)
+        analysis = extractor.analyze_paper(pages, meta, engine)
+        qa = QASystem(use_local_only=True)
+
+        # Test query 1
+        resp = qa.ask("who are the authors of the paper?", pages, engine, analysis)
+        self.assertEqual(resp.status, "found")
+        self.assertIn("Elena R. Vance", resp.answer)
+        self.assertIn("Marcus K. Chen", resp.answer)
+        self.assertIn("Aris Thorne", resp.answer)
+        self.assertGreater(len(resp.citations), 0)
+        self.assertEqual(resp.citations[0].page_number, 1)
+
+        # Test query 2
+        resp2 = qa.ask("who wrote this paper?", pages, engine, analysis)
+        self.assertEqual(resp2.status, "found")
+        self.assertIn("Elena R. Vance", resp2.answer)
+
+    def test_summary_query(self):
+        """Verifies that summary questions return a structured executive summary from the paper."""
+        txt_path = "/Users/prejin/Thesis/sample_papers/paper1_kinase_inhibitors.txt"
+        with open(txt_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        pages = DocumentParser.parse_text_content(content)
+        meta = DocumentParser.extract_metadata(pages)
+        engine = EvidenceEngine(pages)
+        extractor = ChemistryExtractor(use_local_only=True)
+        analysis = extractor.analyze_paper(pages, meta, engine)
+        qa = QASystem(use_local_only=True)
+
+        resp = qa.ask("summary of the paper", pages, engine, analysis)
+        self.assertEqual(resp.status, "found")
+        self.assertGreater(len(resp.citations), 0)
+        # Contains key concepts from the paper
+        self.assertTrue("kinase" in resp.answer.lower() or "inhibitor" in resp.answer.lower() or "synthesis" in resp.answer.lower())
+
+        resp2 = qa.ask("what is this paper about?", pages, engine, analysis)
+        self.assertEqual(resp2.status, "found")
+
+    def test_conclusion_query(self):
+        """Verifies that questions about conclusions return paper conclusions."""
+        txt_path = "/Users/prejin/Thesis/sample_papers/paper1_kinase_inhibitors.txt"
+        with open(txt_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        pages = DocumentParser.parse_text_content(content)
+        meta = DocumentParser.extract_metadata(pages)
+        engine = EvidenceEngine(pages)
+        extractor = ChemistryExtractor(use_local_only=True)
+        analysis = extractor.analyze_paper(pages, meta, engine)
+        qa = QASystem(use_local_only=True)
+
+        resp = qa.ask("what is the conclusion?", pages, engine, analysis)
+        self.assertEqual(resp.status, "found")
+        self.assertGreater(len(resp.citations), 0)
+
+    def test_chemical_synonym_expansion_retrieval(self):
+        """Verifies that queries using synonyms like 'synthetic efficiency' or 'antiproliferative potency' successfully retrieve relevant chunks."""
+        txt_path = "/Users/prejin/Thesis/sample_papers/paper1_kinase_inhibitors.txt"
+        with open(txt_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        pages = DocumentParser.parse_text_content(content)
+        engine = EvidenceEngine(pages)
+        
+        # Test 1: 'synthetic efficiency' expands to yield/conversion
+        results_yield = engine.search("What was the synthetic efficiency of compound 3b?", top_k=3)
+        self.assertGreater(len(results_yield), 0)
+        yield_text = " ".join([c.text.lower() for c, _ in results_yield])
+        self.assertTrue("yield" in yield_text or "%" in yield_text or "3b" in yield_text)
+
+        # Test 2: 'antiproliferative potency' expands to cytotoxicity/GI50
+        results_pot = engine.search("antiproliferative potency in cancer cells", top_k=3)
+        self.assertGreater(len(results_pot), 0)
+
+    def test_structured_data_context_injection(self):
+        """Verifies that _get_matching_structured_context extracts exact matching table rows and bioactivities."""
+        txt_path = "/Users/prejin/Thesis/sample_papers/paper1_kinase_inhibitors.txt"
+        with open(txt_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        pages = DocumentParser.parse_text_content(content)
+        meta = DocumentParser.extract_metadata(pages)
+        engine = EvidenceEngine(pages)
+        extractor = ChemistryExtractor(use_local_only=True)
+        analysis = extractor.analyze_paper(pages, meta, engine)
+        qa = QASystem(use_local_only=True)
+
+        structured_ctx = qa._get_matching_structured_context("What is the IC50 of compound 3b?", analysis)
+        self.assertIn("3b", structured_ctx.lower())
+        self.assertTrue("8.4" in structured_ctx or "ic50" in structured_ctx.lower())
+
 
 if __name__ == "__main__":
     unittest.main()

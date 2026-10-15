@@ -1,0 +1,196 @@
+question_id,category,question,expected_answer,predicted_answer,expected_status,predicted_status,is_status_correct,exact_match,token_f1,normalized_accuracy,entity_correct,target_correct,metric_type_correct,numeric_correct,unit_correct,overall_chemistry_correct,citation_validity,citation_accuracy,citation_completeness,faithfulness,unsupported_claim_rate,hallucination_free_rate,retrieval_latency_ms,generation_latency_ms,total_latency_ms,engine_used,notes
+Q001,bioactivity,What is the IC50 value of Compound 3b against EGFR kinase?,8.4 ± 0.6 nM,"### 🔬 Scientific Explanation & Context:
+In the uploaded publication, biological profiling revealed that **Compound 3B** is a potent inhibitor of **EGFR**, exhibiting a measured **IC50** of **8.4 ± 0.6 nM**.
+
+The investigation systematically evaluated structure-activity relationships (SAR) to assess the impact of functional group modifications on target efficacy.
+
+In complementary assays, the authors also documented cellular growth inhibition in A549 (IC50 = **0.62 ± 0.05 µM**), and cellular growth inhibition in A549 (IC50 = **8.4 nM**).
+
+#### 📊 Key Literature Highlights & Parameters:
+- **Evaluated Candidate:** Compound 3B
+- **Biological Target / System:** EGFR
+- **Reported Activity (IC50):** 8.4 ± 0.6 nM
+- **Assay System:** In Vitro Enzymatic Kinase Inhibition Assay (EGFR)
+
+---
+### 📑 Supporting Verifiable Citations:
+- **[Page 3, Table]**: ""As shown in Table 1, Compound 3b exhibited superior enzymatic potency (IC50 = 8.4 nM), outperforming both parent Compound 3a (IC50 = 42.1 nM) and the clinical standard Erlotinib (IC50 = 11.2 nM).""
+
+- **[Page 3, Table]**: ""The antiproliferative assay in A549 cells confirmed that Compound 3b translated its potent enzymatic inhibition into robust cellular growth arrest with an IC50 of 0.62 µM.""
+
+- **[Page 3, Table]**: ""Table 1: Enzymatic Inhibition and Cellular Antiproliferative Activity
+Compound   | Molecular Formula | EGFR IC50 (nM) | A549 IC50 (µM) | Isolated Yield (%)
+Compound 3a| C18H20N4O         | 42.1 ± 3.2     | 4.8 ± 0.4      | 76%
+Compound 3b| C19H22N4O2        | 8.4 ± 0.6      | 0.62 ± 0.05    | 82%
+Compound 4a| C17H19N5O         | 120.5 ± 9.1    | 14.1 ± 1.2     | 68%
+Erlotinib  | C22H23N3O4        | 11.2 ± 0.8     | 0.85 ± 0.07    | Reference""",found,found,True,1.0,0.9,1.0,True,True,True,True,True,True,1.0,1.0,0.4286,1.0,0.0,1.0,0.91,13.46,14.38,local,
+Q002,bioactivity,What is the antiproliferative IC50 of Compound 3b in A549 lung cancer cells?,0.62 ± 0.05 µM,"### 🔬 Scientific Explanation & Context:
+In the uploaded publication, biological profiling demonstrated that **Compound 3B** exhibited potent cellular activity, with a measured **IC50** of **0.62 ± 0.05 µM** in **A549** cells.
+
+The investigation systematically evaluated structure-activity relationships (SAR) to assess the impact of functional group modifications on target efficacy.
+
+In complementary assays, the authors also documented inhibition of EGFR (IC50 = **8.4 ± 0.6 nM**), and cellular growth inhibition in A549 (IC50 = **8.4 nM**).
+
+#### 📊 Key Literature Highlights & Parameters:
+- **Evaluated Candidate:** Compound 3B
+- **Biological Target / System:** A549
+- **Reported Activity (IC50):** 0.62 ± 0.05 µM
+- **Assay System:** Cellular Antiproliferative / Viability Assay (A549)
+
+---
+### 📑 Supporting Verifiable Citations:
+- **[Page 3, Table]**: ""As shown in Table 1, Compound 3b exhibited superior enzymatic potency (IC50 = 8.4 nM), outperforming both parent Compound 3a (IC50 = 42.1 nM) and the clinical standard Erlotinib (IC50 = 11.2 nM).""
+
+- **[Page 3, Table]**: ""The antiproliferative assay in A549 cells confirmed that Compound 3b translated its potent enzymatic inhibition into robust cellular growth arrest with an IC50 of 0.62 µM.""
+
+- **[Page 3, Table]**: ""Table 1: Enzymatic Inhibition and Cellular Antiproliferative Activity
+Compound   | Molecular Formula | EGFR IC50 (nM) | A549 IC50 (µM) | Isolated Yield (%)
+Compound 3a| C18H20N4O         | 42.1 ± 3.2     | 4.8 ± 0.4      | 76%
+Compound 3b| C19H22N4O2        | 8.4 ± 0.6      | 0.62 ± 0.05    | 82%
+Compound 4a| C17H19N5O         | 120.5 ± 9.1    | 14.1 ± 1.2     | 68%
+Erlotinib  | C22H23N3O4        | 11.2 ± 0.8     | 0.85 ± 0.07    | Reference""",found,found,True,1.0,0.9,1.0,True,True,True,True,True,True,1.0,1.0,0.4286,1.0,0.0,1.0,0.21,1.05,1.26,local,
+Q003,synthesis,What was the isolated yield of Compound 3b?,82%,"> ⚠️ **Conflicting Evidence Flagged for Human Review**
+> **Topic:** Contradictory Yield Values Detected (82.0% vs 68.0%)
+> **Discrepancy:** Passage on Page 2 (Chemistry & Synthesis) reports 82.0%, whereas Page 3 (Table) reports 68.0%.
+
+### 🔬 Scientific Explanation & Context:
+Regarding the reported isolated yield, **Compound 3B** was obtained in an isolated yield of **82%**.
+
+Following synthesis completion, chromatographic purification afforded the product in high chemical purity suitable for bioassay profiling.
+
+#### 📊 Key Literature Highlights & Parameters:
+- **Target Product:** Compound 3B
+- **Isolated Yield:** 82%
+
+---
+### 📑 Supporting Verifiable Citations:
+- **[Page 2, Chemistry & Synthesis]**: ""For the preparation of Compound 3b, the penultimate chloro intermediate underwent Suzuki-Miyaura cross-coupling with 4-methoxyphenylboronic acid.""
+
+- **[Page 2, Chemistry & Synthesis]**: ""Following aqueous workup and silica gel flash chromatography (EtOAc/hexanes 1:2), Compound 3b was obtained as an off-white crystalline solid in 82% isolated yield.""
+
+- **[Page 3, Table]**: ""Table 1: Enzymatic Inhibition and Cellular Antiproliferative Activity
+Compound   | Molecular Formula | EGFR IC50 (nM) | A549 IC50 (µM) | Isolated Yield (%)
+Compound 3a| C18H20N4O         | 42.1 ± 3.2     | 4.8 ± 0.4      | 76%
+Compound 3b| C19H22N4O2        | 8.4 ± 0.6      | 0.62 ± 0.05    | 82%
+Compound 4a| C17H19N5O         | 120.5 ± 9.1    | 14.1 ± 1.2     | 68%
+Erlotinib  | C22H23N3O4        | 11.2 ± 0.8     | 0.85 ± 0.07    | Reference""",found,conflicting,False,1.0,0.9,1.0,True,True,True,True,True,True,1.0,1.0,0.4286,0.7857,0.1429,0.8571,0.11,0.67,0.78,local,"Status mismatch: expected found, got conflicting"
+Q004,bioactivity,What is the EGFR IC50 of parent Compound 3a?,42.1 ± 3.2 nM,"### 🔬 Scientific Explanation & Context:
+In the uploaded publication, biological profiling revealed that **Compound 3A** is a potent inhibitor of **EGFR**, exhibiting a measured **IC50** of **42.1 ± 3.2 nM**.
+
+The investigation systematically evaluated structure-activity relationships (SAR) to assess the impact of functional group modifications on target efficacy.
+
+In complementary assays, the authors also documented cellular growth inhibition in A549 (IC50 = **4.8 ± 0.4 µM**), and cellular growth inhibition in A549 (IC50 = **8.4 nM**).
+
+#### 📊 Key Literature Highlights & Parameters:
+- **Evaluated Candidate:** Compound 3A
+- **Biological Target / System:** EGFR
+- **Reported Activity (IC50):** 42.1 ± 3.2 nM
+- **Assay System:** In Vitro Enzymatic Kinase Inhibition Assay (EGFR)
+
+---
+### 📑 Supporting Verifiable Citations:
+- **[Page 3, Table]**: ""As shown in Table 1, Compound 3b exhibited superior enzymatic potency (IC50 = 8.4 nM), outperforming both parent Compound 3a (IC50 = 42.1 nM) and the clinical standard Erlotinib (IC50 = 11.2 nM).""
+
+- **[Page 3, Table]**: ""The antiproliferative assay in A549 cells confirmed that Compound 3b translated its potent enzymatic inhibition into robust cellular growth arrest with an IC50 of 0.62 µM.""
+
+- **[Page 3, Table]**: ""Table 1: Enzymatic Inhibition and Cellular Antiproliferative Activity
+Compound   | Molecular Formula | EGFR IC50 (nM) | A549 IC50 (µM) | Isolated Yield (%)
+Compound 3a| C18H20N4O         | 42.1 ± 3.2     | 4.8 ± 0.4      | 76%
+Compound 3b| C19H22N4O2        | 8.4 ± 0.6      | 0.62 ± 0.05    | 82%
+Compound 4a| C17H19N5O         | 120.5 ± 9.1    | 14.1 ± 1.2     | 68%
+Erlotinib  | C22H23N3O4        | 11.2 ± 0.8     | 0.85 ± 0.07    | Reference""",found,found,True,1.0,0.9,1.0,True,True,True,True,True,True,1.0,1.0,0.4286,1.0,0.0,1.0,0.09,0.53,0.62,local,
+Q005,synthesis,What catalyst was used in the Suzuki-Miyaura coupling for preparing Compound 3b?,Pd(PPh3)4 (5 mol %),"### 🔬 Scientific Explanation & Context:
+In the uploaded publication, biological profiling revealed that **Compound 3B** is a potent inhibitor of **EGFR**, exhibiting a measured **IC50** of **8.4 ± 0.6 nM**.
+
+The investigation systematically evaluated structure-activity relationships (SAR) to assess the impact of functional group modifications on target efficacy.
+
+In complementary assays, the authors also documented cellular growth inhibition in A549 (IC50 = **0.62 ± 0.05 µM**), and cellular growth inhibition in A549 (IC50 = **8.4 nM**).
+
+#### 📊 Key Literature Highlights & Parameters:
+- **Evaluated Candidate:** Compound 3B
+- **Biological Target / System:** EGFR
+- **Reported Activity (IC50):** 8.4 ± 0.6 nM
+- **Assay System:** In Vitro Enzymatic Kinase Inhibition Assay (EGFR)
+
+---
+### 📑 Supporting Verifiable Citations:
+- **[Page 2, Chemistry & Synthesis]**: ""For the preparation of Compound 3b, the penultimate chloro intermediate underwent Suzuki-Miyaura cross-coupling with 4-methoxyphenylboronic acid.""
+
+- **[Page 2, Chemistry & Synthesis]**: ""The reaction was conducted in 1,4-dioxane/H2O (4:1 v/v) using Pd(PPh3)4 (5 mol %) as catalyst and K2CO3 (2.0 equiv) as base.""
+
+- **[Page 2, Chemistry & Synthesis]**: ""Following aqueous workup and silica gel flash chromatography (EtOAc/hexanes 1:2), Compound 3b was obtained as an off-white crystalline solid in 82% isolated yield.""",found,found,True,1.0,0.9,1.0,True,True,True,False,True,False,1.0,1.0,0.4286,0.7857,0.0,1.0,0.06,0.62,0.68,local,Value mismatch (expected 5.0 mol %)
+Q006,property,What is the molecular formula of Compound 3b?,C19H22N4O2,"### 🔬 Scientific Explanation & Context:
+The experimental characterization section confirms the identity and chemical purity of **Compound 3B** (molecular formula **C18H20N4O**), with confirmed mass spectral purity.
+
+Proton and carbon NMR spectroscopic evaluations (1H NMR and 13C NMR) verified the assigned regiochemistry and structural connectivity, while reverse-phase HPLC established chemical purity exceeding standard medicinal chemistry benchmarks (>95%).
+
+---
+### 📑 Supporting Verifiable Citations:
+- **[Page 3, Table]**: ""Table 1: Enzymatic Inhibition and Cellular Antiproliferative Activity
+Compound   | Molecular Formula | EGFR IC50 (nM) | A549 IC50 (µM) | Isolated Yield (%)
+Compound 3a| C18H20N4O         | 42.1 ± 3.2     | 4.8 ± 0.4      | 76%
+Compound 3b| C19H22N4O2        | 8.4 ± 0.6      | 0.62 ± 0.05    | 82%
+Compound 4a| C17H19N5O         | 120.5 ± 9.1    | 14.1 ± 1.2     | 68%
+Erlotinib  | C22H23N3O4        | 11.2 ± 0.8     | 0.85 ± 0.07    | Reference""
+
+- **[Page 3, Table]**: ""As shown in Table 1, Compound 3b exhibited superior enzymatic potency (IC50 = 8.4 nM), outperforming both parent Compound 3a (IC50 = 42.1 nM) and the clinical standard Erlotinib (IC50 = 11.2 nM).""
+
+- **[Page 3, Table]**: ""The antiproliferative assay in A549 cells confirmed that Compound 3b translated its potent enzymatic inhibition into robust cellular growth arrest with an IC50 of 0.62 µM.""",found,found,True,1.0,0.9,1.0,True,True,True,True,True,True,1.0,1.0,1.0,0.5,0.5,0.5,0.06,0.62,0.68,local,
+Q007,author,Who authored this paper on EGFR kinase inhibitors?,"Elena R. Vance, Marcus K. Chen, and Aris Thorne","### 👥 Authors and Publication Details
+
+The authors of this research paper are:
+
+### **Elena R. Vance, Marcus K. Chen, and Aris Thorne**
+
+#### 📄 Publication Metadata:
+- **Paper Title:** *Design, Synthesis, and Biological Evaluation of Novel 2,4-Diaminopyrimidine Derivatives as Potent EGFR Kinase Inhibitors*
+- **Affiliation / Institution:** Department of Medicinal Chemistry, Institute of Chemical Biology
+- **DOI / Journal:** `10.1021/acs.jmedchem.2026.0412`
+- **Location in Document:** Page 1
+
+#### 🔬 Research Scope:
+In this publication, the authors investigated Epidermal growth factor receptor (EGFR) mutations are key oncogenic drivers in non-small cell lung cancer. Herein, we describe the rational design and synthesis of a focused series of 2,4-diaminopyrimidines as ATP-competitive kinase inhibitors.
+
+---
+### 📑 Supporting Verifiable Citations:
+- **[Page 1, Publication Details & Authors]**: ""Elena R. Vance, Marcus K. Chen, and Aris Thorne""",found,found,True,1.0,0.9,1.0,True,True,True,True,True,True,1.0,1.0,0.1429,0.7143,0.0,1.0,0.04,0.04,0.08,local,
+Q008,absence,What was the Phase III human clinical trial dosage of Compound 3b?,No supporting evidence was found in the uploaded paper.,"### 🔬 Scientific Explanation & Context:
+According to the literature findings presented in the paper, As shown in Table 1, Compound 3b exhibited superior enzymatic potency (IC50 = 8.4 nM), outperforming both parent Compound 3a (IC50 = 42.1 nM) and the clinical standard Erlotinib (IC50 = 11.2 nM).
+
+Furthermore, the investigation details that The antiproliferative assay in A549 cells confirmed that Compound 3b translated its potent enzymatic inhibition into robust cellular growth arrest with an IC50 of 0.62 µM. For the preparation of Compound 3b, the penultimate chloro intermediate underwent Suzuki-Miyaura cross-coupling with 4-methoxyphenylboronic acid. Following aqueous workup and silica gel flash chromatography (EtOAc/hexanes 1:2), Compound 3b was obtained as an off-white crystalline solid in 82% isolated yield. Among the synthesized molecules, Compound 3b (C19H22N4O2) emerged as the most potent lead compound, exhibiting an IC50 of 8.4 nM against recombinant human EGFR kinase and potent antiproliferative efficacy in A549 lung adenocarcinoma cells.
+
+---
+### 📑 Supporting Verifiable Citations:
+- **[Page 3, Table]**: ""As shown in Table 1, Compound 3b exhibited superior enzymatic potency (IC50 = 8.4 nM), outperforming both parent Compound 3a (IC50 = 42.1 nM) and the clinical standard Erlotinib (IC50 = 11.2 nM).""
+
+- **[Page 3, Table]**: ""The antiproliferative assay in A549 cells confirmed that Compound 3b translated its potent enzymatic inhibition into robust cellular growth arrest with an IC50 of 0.62 µM.""
+
+- **[Page 2, Chemistry & Synthesis]**: ""For the preparation of Compound 3b, the penultimate chloro intermediate underwent Suzuki-Miyaura cross-coupling with 4-methoxyphenylboronic acid.""",absent,found,False,0.0,0.1667,0.5556,False,False,False,False,False,False,0.0,0.0,1.0,0.5,0.0,1.0,0.04,0.46,0.51,local,"Status mismatch: expected absent, got found"
+Q009,absence,What was the oral bioavailability (%F) and pharmacokinetic clearance in Sprague-Dawley rats?,No supporting evidence was found in the uploaded paper.,"**No supporting evidence was found in the uploaded paper.**
+
+The document was thoroughly indexed, but does not contain reported data, experimental procedures, or conclusions regarding this query. The system strictly adheres to evidence grounding and will not extrapolate without textual backing.
+
+---
+❓ **Would you like an answer based on broader scientific literature along with related research papers on this topic?**
+
+*Click the button below or reply **""Yes""** to consult broader chemical literature and fetch related publications.*",absent,absent,True,1.0,1.0,1.0,True,True,True,True,True,True,1.0,1.0,1.0,1.0,0.0,1.0,0.04,0.08,0.12,local,
+Q010,conflict,What reaction conditions and heating method were reported for the Suzuki coupling of Compound 3b?,"Discrepancy: Abstract reports microwave-assisted Suzuki cross-coupling, while Page 2 describes thermal heating at 85 °C under argon for 5 h.","### 🔬 Scientific Explanation & Context:
+In the uploaded publication, biological profiling revealed that **Compound 3B** is a potent inhibitor of **EGFR**, exhibiting a measured **IC50** of **8.4 ± 0.6 nM**.
+
+The investigation systematically evaluated structure-activity relationships (SAR) to assess the impact of functional group modifications on target efficacy.
+
+In complementary assays, the authors also documented cellular growth inhibition in A549 (IC50 = **0.62 ± 0.05 µM**), and cellular growth inhibition in A549 (IC50 = **8.4 nM**).
+
+#### 📊 Key Literature Highlights & Parameters:
+- **Evaluated Candidate:** Compound 3B
+- **Biological Target / System:** EGFR
+- **Reported Activity (IC50):** 8.4 ± 0.6 nM
+- **Assay System:** In Vitro Enzymatic Kinase Inhibition Assay (EGFR)
+
+---
+### 📑 Supporting Verifiable Citations:
+- **[Page 2, Chemistry & Synthesis]**: ""For the preparation of Compound 3b, the penultimate chloro intermediate underwent Suzuki-Miyaura cross-coupling with 4-methoxyphenylboronic acid.""
+
+- **[Page 2, Chemistry & Synthesis]**: ""The reaction was conducted in 1,4-dioxane/H2O (4:1 v/v) using Pd(PPh3)4 (5 mol %) as catalyst and K2CO3 (2.0 equiv) as base.""
+
+- **[Page 2, Chemistry & Synthesis]**: ""Following aqueous workup and silica gel flash chromatography (EtOAc/hexanes 1:2), Compound 3b was obtained as an off-white crystalline solid in 82% isolated yield.""",conflicting,found,False,0.0,0.1951,0.25,True,True,True,False,True,False,1.0,0.25,0.4286,0.7857,0.0,1.0,0.04,0.46,0.5,local,"Status mismatch: expected conflicting, got found; Value mismatch (expected 85.0 °C)"

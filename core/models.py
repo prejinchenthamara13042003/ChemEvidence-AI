@@ -8,6 +8,31 @@ from typing import List, Optional, Literal, Dict, Any
 from pydantic import BaseModel, Field
 
 
+AVAILABLE_GEMINI_MODELS = [
+    "gemini-3.5-flash-lite",
+    "gemini-flash-lite-latest",
+    "gemini-3.8-flash"
+]
+
+
+def generate_content_with_fallback(client, contents, config=None, models=None):
+    """Executes client.models.generate_content trying preferred models sequentially."""
+    if models is None:
+        models = AVAILABLE_GEMINI_MODELS
+    last_err = None
+    for model_name in models:
+        try:
+            return client.models.generate_content(
+                model=model_name,
+                contents=contents,
+                config=config
+            )
+        except Exception as e:
+            last_err = e
+            continue
+    raise last_err
+
+
 class EvidenceCitation(BaseModel):
     """Direct verifiable citation from the original document."""
     page_number: int = Field(description="Exact 1-based page number where the evidence appears")
@@ -106,6 +131,8 @@ class PaperMetadata(BaseModel):
     title: str = Field(default="Untitled Chemistry Document")
     authors: Optional[str] = Field(default=None)
     journal_or_doi: Optional[str] = Field(default=None)
+    abstract: Optional[str] = Field(default=None)
+    affiliations: Optional[str] = Field(default=None)
     page_count: int = 1
     total_characters: int = 0
     total_words: int = 0

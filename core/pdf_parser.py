@@ -148,7 +148,7 @@ class DocumentParser:
 
     @classmethod
     def extract_metadata(cls, pages: List[PageContent]) -> PaperMetadata:
-        """Extracts publication title, authors, DOI, and page stats."""
+        """Extracts publication title, authors, DOI, affiliations, abstract, and page stats."""
         total_chars = sum(len(p.text) for p in pages)
         total_words = sum(len(p.text.split()) for p in pages)
         page_count = len(pages)
@@ -160,10 +160,14 @@ class DocumentParser:
         title = "Scientific Chemistry Literature"
         authors = "Not specified"
         doi = None
+        affiliations = None
+        abstract_text = None
 
-        for line in lines[:5]:
-            if len(line) > 15 and not line.lower().startswith(("http", "doi", "issn", "page")):
+        title_idx = -1
+        for idx, line in enumerate(lines[:6]):
+            if len(line) > 15 and not line.lower().startswith(("http", "doi", "issn", "page", "volume", "issue")):
                 title = line
+                title_idx = idx
                 break
 
         # Check for DOI
@@ -171,18 +175,43 @@ class DocumentParser:
         if doi_match:
             doi = doi_match.group(0)
 
-        # Look for author indications
-        for line in lines[1:6]:
-            if any(term in line.lower() for term in ["university", "department", "laboratory", "institute"]):
+        # Look for author indications and affiliations
+        author_candidates = []
+        affiliation_candidates = []
+        start_search = title_idx + 1 if title_idx >= 0 else 1
+
+        for line in lines[start_search:start_search + 6]:
+            lower_l = line.lower()
+            if lower_l.startswith("abstract") or lower_l.startswith("introduction"):
                 break
-            if "," in line and len(line) < 120 and line != title:
-                authors = line
-                break
+            if doi and doi in line:
+                continue
+            if any(term in lower_l for term in ["university", "department", "laboratory", "institute", "center", "school", "hospital", "college"]):
+                affiliation_candidates.append(line)
+                continue
+            # Author candidate: contains comma, "and", or typical name patterns and doesn't look like journal name/date
+            if line != title and len(line) < 160:
+                if ("," in line or " and " in lower_l or re.search(r"^[A-Z][a-z]+(?:\s+[A-Z]\.?)?\s+[A-Z][a-z]+", line)):
+                    author_candidates.append(line)
+
+        if author_candidates:
+            authors = ", ".join(author_candidates)
+        if affiliation_candidates:
+            affiliations = "; ".join(affiliation_candidates)
+
+        # Extract abstract
+        ab_match = re.search(r"(?i)\babstract\b[:\s]*(.+?)(?=\n\s*(?:introduction|1\.|keywords|scheme|table|\Z))", first_page, re.DOTALL)
+        if ab_match:
+            abstract_text = ab_match.group(1).strip()
+            # Clean up leading non-word chars
+            abstract_text = re.sub(r"^[:\-\s]+", "", abstract_text)
 
         return PaperMetadata(
             title=title,
             authors=authors,
             journal_or_doi=doi,
+            abstract=abstract_text,
+            affiliations=affiliations,
             page_count=page_count,
             total_characters=total_chars,
             total_words=total_words

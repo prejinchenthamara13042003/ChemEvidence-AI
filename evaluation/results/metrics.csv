@@ -1,0 +1,42 @@
+Metric Category,Metric Name,Value
+Retrieval,mrr,1.0
+Retrieval,precision@1,1.0
+Retrieval,recall@1,0.6042
+Retrieval,hit_rate@1,1.0
+Retrieval,precision@3,0.625
+Retrieval,recall@3,0.875
+Retrieval,hit_rate@3,1.0
+Retrieval,precision@5,0.45
+Retrieval,recall@5,1.0
+Retrieval,hit_rate@5,1.0
+Retrieval,precision@10,0.225
+Retrieval,recall@10,1.0
+Retrieval,hit_rate@10,1.0
+Answer Quality,exact_match,0.8
+Answer Quality,token_f1,0.7662
+Answer Quality,normalized_accuracy,0.8806
+Chemistry Factual,entity_accuracy,0.9
+Chemistry Factual,target_accuracy,0.9
+Chemistry Factual,metric_type_accuracy,0.9
+Chemistry Factual,numeric_accuracy,0.7
+Chemistry Factual,unit_accuracy,0.9
+Chemistry Factual,overall_chemistry_accuracy,0.7
+Citations,citation_validity,0.9
+Citations,citation_accuracy,0.825
+Citations,citation_completeness,0.5715
+Citations,faithfulness,0.8071
+Reliability & Detection,unsupported_claim_rate,0.0643
+Reliability & Detection,hallucination_free_rate,0.9357
+Reliability & Detection,absence_precision,1.0
+Reliability & Detection,absence_recall,0.5
+Reliability & Detection,absence_f1,0.6667
+Reliability & Detection,absence_accuracy,0.9
+Reliability & Detection,conflict_precision,0.0
+Reliability & Detection,conflict_recall,0.0
+Reliability & Detection,conflict_f1,0.0
+Latency,mean_total_latency_ms,1.96
+Latency,median_total_latency_ms,0.65
+Latency,min_total_latency_ms,0.08
+Latency,max_total_latency_ms,14.38
+Latency,p95_total_latency_ms,14.38
+Overall,composite_benchmark_score,83.07
