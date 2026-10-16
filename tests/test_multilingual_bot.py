@@ -18,7 +18,7 @@ from core.multilingual_bot import MultilingualChemBot
 class TestMultilingualChemBot(unittest.TestCase):
 
     def setUp(self):
-        self.bot = MultilingualChemBot(api_key=None)  # Use local multilingual engine
+        self.bot = MultilingualChemBot(api_key=None, use_local_only=True)  # Use local multilingual engine
 
         txt_path = "/Users/prejin/Thesis/sample_papers/paper1_kinase_inhibitors.txt"
         with open(txt_path, "r", encoding="utf-8") as f:
@@ -34,6 +34,19 @@ class TestMultilingualChemBot(unittest.TestCase):
         code, name = self.bot.detect_language("ഇതിലെ പ്രധാനപ്പെട്ട കോമ്പൗണ്ട് ഏതാണ്?")
         self.assertEqual(code, "ml")
         self.assertEqual(name, "Malayalam")
+
+        # Explicit language request in prompt (e.g. English query asking for Spanish / Malayalam / Hindi)
+        code_sp, name_sp = self.bot.detect_language("What is the lead molecule? Explain in Spanish please")
+        self.assertEqual(code_sp, "es")
+        self.assertEqual(name_sp, "Spanish")
+
+        code_ml, name_ml = self.bot.detect_language("Can you explain the main compound in Malayalam?")
+        self.assertEqual(code_ml, "ml")
+        self.assertEqual(name_ml, "Malayalam")
+
+        code_hi, name_hi = self.bot.detect_language("Tell me the yield in Hindi")
+        self.assertEqual(code_hi, "hi")
+        self.assertEqual(name_hi, "Hindi")
 
         # Hindi script
         code, name = self.bot.detect_language("इस पेपर का मुख्य निष्कर्ष क्या है?")

@@ -43,6 +43,13 @@ from core.knowledge_graph import KnowledgeGraphBuilder
 from core.confidence_scorer import ConfidenceScorer
 from core.gap_detector import ResearchGapDetector
 from core.multi_paper_comparator import MultiPaperComparator
+from core.relevance_filter import (
+    RelevanceFilterEngine,
+    ScreeningTierResult,
+    PaperRelevanceAssessment,
+    RelevanceScreeningReport,
+    DeepQAResponse
+)
 
 __all__ = [
     "PaperAnalysisResult",
@@ -84,5 +91,10 @@ __all__ = [
     "KnowledgeGraphBuilder",
     "ConfidenceScorer",
     "ResearchGapDetector",
-    "MultiPaperComparator"
+    "MultiPaperComparator",
+    "RelevanceFilterEngine",
+    "ScreeningTierResult",
+    "PaperRelevanceAssessment",
+    "RelevanceScreeningReport",
+    "DeepQAResponse"
 ]

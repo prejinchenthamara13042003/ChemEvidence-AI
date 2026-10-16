@@ -1032,8 +1032,8 @@ State the exact count and series directly in the first sentence, followed by ver
                 f"{structured_context}\n"
             )
 
-        prompt = f"""You are an evidence-aware scientific assistant for chemistry and medicinal biology literature.
-Your task is to provide a comprehensive, deep scientific explanation answering the researcher's question based strictly on the provided document context, verified structured data, and retrieved passages.
+        prompt = f"""You are an evidence-aware scientific intelligence consultant for chemistry and medicinal biology literature.
+Your task is to provide an authoritative, executive, publication-grade professional scientific explanation answering the researcher's question based strictly on the provided document context, verified structured data, and retrieved passages.
 
 DOCUMENT CONTEXT:
 {doc_header}
@@ -1048,10 +1048,11 @@ CRITICAL RULES:
    - NEVER report a cellular growth inhibition metric (such as GI50 or CC50 in cell lines like A549, HeLa, Vero) as an enzymatic target IC50 (such as against EGFR, CDK4), or vice versa.
    - If the user asks for a specific target or metric (e.g., 'What is the IC50 against EGFR?') and that specific metric is NOT reported for that compound in the passages, state that it is not reported! If a different metric was measured instead (e.g. A549 GI50), explicitly clarify that only cellular GI50 was measured, not enzymatic IC50.
 5. Answer the user's specific question directly, clearly, and quantitatively in the very first sentence. Then explain the relevant supporting context, reaction conditions, numbers (including ± error margins), and outcomes directly related to the user's inquiry.
-6. Highlight key parameters (compounds, targets, yields, IC50 values, catalysts, mechanisms).
-7. After your scientific explanation, provide a "Supporting Verifiable Citations" section quoting exact verbatim sentences and page numbers.
-8. If there is ambiguity or conflicting information in the text, explicitly explain both claims.
-9. Do not fabricate or extrapolate beyond the text.
+6. Maintain a rigorous, formal, academic scientific tone. Avoid casual or conversational phrasing.
+7. Highlight key parameters (compounds, targets, yields, IC50 values, catalysts, mechanisms).
+8. After your scientific explanation, provide a "Supporting Verifiable Citations" section quoting exact verbatim sentences and page numbers.
+9. If there is ambiguity or conflicting information in the text, explicitly explain both claims.
+10. Do not fabricate or extrapolate beyond the text.
 
 QUESTION: {question}
 
@@ -1061,12 +1062,18 @@ RETRIEVED PASSAGES:
 {passages_text}
 
 OUTPUT STRUCTURE:
-### 🔬 Scientific Answer & Context:
-(Direct answer addressing specifically what was asked, supported by relevant literature context)
+### 🔬 Executive Scientific Assessment:
+(Direct, rigorous, and authoritative statement addressing the question quantitatively in formal academic diction, grounded strictly in the manuscript)
 
-#### 📊 Key Literature Parameters:
-- **Parameter 1:** ...
-- **Parameter 2:** ...
+#### 🧪 Quantitative Parameters & Assay Outcomes:
+- **Evaluated Entity:** ...
+- **Biological Target / System:** ...
+- **Quantitative Activity / Value:** ... (e.g., IC50 = 8.4 ± 0.6 nM or Yield = 88%)
+- **Assay Protocol / Conditions:** ...
+- **Manuscript Reference:** Page X, Section Y
+
+#### 📖 Mechanistic & Methodological Context:
+(In-depth academic evaluation of the underlying biological mechanism, structure-activity relationship [SAR] considerations, selectivity profiles, or synthetic reaction route execution)
 
 ---
 ### 📑 Supporting Verifiable Citations:
@@ -1228,7 +1235,7 @@ OUTPUT STRUCTURE:
 
         full_answer = (
             f"{warning_banner}"
-            f"### 🔬 Scientific Explanation & Context:\n"
+            f"### 🔬 Executive Scientific Assessment:\n"
             f"{explanation}\n\n"
             f"---\n"
             f"### 📑 Supporting Verifiable Citations:\n"

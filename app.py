@@ -62,6 +62,12 @@ from core.knowledge_graph import KnowledgeGraphBuilder
 from core.confidence_scorer import ConfidenceScorer
 from core.gap_detector import ResearchGapDetector
 from core.multi_paper_comparator import MultiPaperComparator
+from core.relevance_filter import (
+    RelevanceFilterEngine,
+    PaperRelevanceAssessment,
+    RelevanceScreeningReport,
+    DeepQAResponse
+)
 
 from src.ui_components import (
     render_grounded_evidence_card,
@@ -534,6 +540,98 @@ st.markdown("""
         margin-bottom: 18px;
         box-shadow: 0 4px 18px rgba(217, 119, 6, 0.1);
     }
+    /* Relevance Screening and Deep QA Styles */
+    .relevance-paper-card {
+        background: rgba(255, 255, 255, 0.95);
+        border: 1px solid rgba(183, 110, 121, 0.35);
+        border-left: 6px solid #B76E79;
+        border-radius: 14px;
+        padding: 20px 22px;
+        margin-bottom: 16px;
+        box-shadow: 0 4px 18px rgba(183, 110, 121, 0.1);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .relevance-paper-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(183, 110, 121, 0.16);
+    }
+    .relevance-badge-elite {
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.18) 0%, rgba(5, 150, 105, 0.22) 100%);
+        border: 1px solid rgba(16, 185, 129, 0.5);
+        color: #065F46;
+        font-weight: 800;
+        font-size: 0.85rem;
+        padding: 4px 12px;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .relevance-badge-mod {
+        background: rgba(183, 110, 121, 0.18);
+        border: 1px solid rgba(183, 110, 121, 0.45);
+        color: #8F2E44;
+        font-weight: 700;
+        font-size: 0.85rem;
+        padding: 4px 12px;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .funnel-kpi-card {
+        background: rgba(255, 255, 255, 0.94);
+        border: 1px solid rgba(183, 110, 121, 0.3);
+        border-top: 4px solid #B76E79;
+        border-radius: 12px;
+        padding: 14px 16px;
+        box-shadow: 0 2px 10px rgba(183, 110, 121, 0.08);
+        text-align: center;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+    .funnel-kpi-title {
+        font-size: 0.74rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #6C4C54;
+    }
+    .funnel-kpi-val {
+        font-size: 1.65rem;
+        font-weight: 800;
+        color: #8F2E44;
+        margin: 4px 0 2px 0;
+    }
+    .funnel-kpi-sub {
+        font-size: 0.74rem;
+        color: #7A5862;
+        line-height: 1.3;
+    }
+    .metric-chip {
+        display: inline-block;
+        background: rgba(183, 110, 121, 0.12);
+        color: #5B2B3D;
+        border: 1px solid rgba(183, 110, 121, 0.28);
+        border-radius: 6px;
+        padding: 2px 7px;
+        font-size: 0.76rem;
+        font-weight: 700;
+        margin: 2px 3px 2px 0;
+    }
+    .relevance-quote-box {
+        font-size: 0.82rem;
+        color: #2D1D22;
+        background: rgba(255, 255, 255, 0.95);
+        border: 1px solid rgba(183, 110, 121, 0.3);
+        border-left: 4px solid #B76E79;
+        border-radius: 8px;
+        padding: 10px 14px;
+        margin-top: 8px;
+        line-height: 1.5;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -582,6 +680,16 @@ if "highlight_quote" not in st.session_state:
     st.session_state.highlight_quote = None
 if "researcher_notes" not in st.session_state:
     st.session_state.researcher_notes = ""
+if "relevance_screening_report" not in st.session_state:
+    st.session_state.relevance_screening_report = None
+if "relevance_selected_ids" not in st.session_state:
+    st.session_state.relevance_selected_ids = []
+if "relevance_qa_chat" not in st.session_state:
+    st.session_state.relevance_qa_chat = []
+if "relevance_pending_q" not in st.session_state:
+    st.session_state.relevance_pending_q = None
+if "relevance_active_query" not in st.session_state:
+    st.session_state.relevance_active_query = ""
 
 
 # Helper to ingest a paper
@@ -968,10 +1076,11 @@ if st.session_state.app_mode == "Multi-Paper Workspace":
         """)
 
         # Active Publications Quick Navigator Ribbon
-        st.markdown("##### 📑 Active Publications in Comparative Corpus")
-        cols_papers = st.columns(min(num_loaded, 4))
-        for p_idx, (p_name, p_data) in enumerate(all_papers):
-            with cols_papers[p_idx % min(num_loaded, 4)]:
+        st.markdown(f"##### 📑 Active Publications in Comparative Corpus ({num_loaded} Loaded)")
+        primary_papers = all_papers[:4]
+        cols_papers = st.columns(min(len(primary_papers), 4))
+        for p_idx, (p_name, p_data) in enumerate(primary_papers):
+            with cols_papers[p_idx % min(len(primary_papers), 4)]:
                 p_analysis = p_data["analysis"]
                 raw_title = str(getattr(p_analysis.metadata, "title", None) or p_name or f"Paper {p_idx+1}")
                 p_title_short = raw_title[:30] + "..." if len(raw_title) > 30 else raw_title
@@ -993,6 +1102,32 @@ if st.session_state.app_mode == "Multi-Paper Workspace":
                     st.session_state.active_paper_name = p_name
                     st.session_state.app_mode = "Single Paper Analysis"
                     st.rerun()
+
+        if num_loaded > 4:
+            with st.expander(f"📑 Browse All Remaining {num_loaded - 4} Active Publications in Corpus", expanded=False):
+                more_cols = st.columns(4)
+                for p_idx, (p_name, p_data) in enumerate(all_papers[4:], start=4):
+                    with more_cols[(p_idx - 4) % 4]:
+                        p_analysis = p_data["analysis"]
+                        raw_title = str(getattr(p_analysis.metadata, "title", None) or p_name or f"Paper {p_idx+1}")
+                        p_title_short = raw_title[:28] + "..." if len(raw_title) > 28 else raw_title
+                        p_comps = len(p_analysis.compounds)
+                        p_assays = len(p_analysis.bioactivities)
+                        render_html(f"""
+                        <div style="background: rgba(255, 255, 255, 0.9); border: 1px solid rgba(183, 110, 121, 0.25); border-radius: 10px; padding: 10px 12px; margin-bottom: 6px;">
+                            <div style="font-size: 0.72rem; font-weight: 800; color: #B76E79; text-transform: uppercase;">Paper {p_idx + 1}</div>
+                            <div style="font-size: 0.82rem; font-weight: 700; color: #2D1D22; margin: 2px 0 4px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{safe_html(raw_title)}">
+                                {safe_html(p_title_short)}
+                            </div>
+                            <div style="font-size: 0.74rem; color: #6C4C54;">
+                                🧬 {p_comps} cmpds • 🎯 {p_assays} assays
+                            </div>
+                        </div>
+                        """)
+                        if st.button(f"🔍 Jump to Paper {p_idx + 1}", key=f"nav_to_paper_more_{p_idx}", use_container_width=True):
+                            st.session_state.active_paper_name = p_name
+                            st.session_state.app_mode = "Single Paper Analysis"
+                            st.rerun()
 
         # Ingestion Expander for adding more publications
         with st.expander(f"➕ Add Another Publication to Comparison (Currently: {num_loaded} Loaded)", expanded=False):
@@ -1063,13 +1198,14 @@ if st.session_state.app_mode == "Multi-Paper Workspace":
         </div>
         """)
 
-        # 4. FIVE CURATED WORKSPACE TABS
-        tab_leads, tab_synth, tab_targets, tab_conflicts, tab_chat = st.tabs([
+        # 4. CURATED WORKSPACE TABS
+        tab_leads, tab_synth, tab_targets, tab_conflicts, tab_chat, tab_relevance = st.tabs([
             "🏆 Lead Showdown & Potency",
             "⚗️ Synthetic Efficiency & Routes",
             "🎯 Target Concordance & Bioactivity",
             "⚠️ Inter-Study Conflict Audit",
-            "💬 Cross-Study AI Assistant"
+            "💬 Cross-Study AI Assistant",
+            "🔍 Relevance Filtering & Deep QA"
         ])
 
         # ---------------------------------------------------------
@@ -1080,10 +1216,11 @@ if st.session_state.app_mode == "Multi-Paper Workspace":
             st.caption("Direct comparative profiling of the premier lead chemotype identified in each independent publication:")
             
             num_cards = len(comparison.lead_comparison_table)
-            lead_cols = st.columns(min(num_cards, 4))
+            display_leads = comparison.lead_comparison_table[:8]
+            lead_cols = st.columns(min(len(display_leads), 4))
             
-            for l_idx, lead_item in enumerate(comparison.lead_comparison_table):
-                with lead_cols[l_idx % min(num_cards, 4)]:
+            for l_idx, lead_item in enumerate(display_leads):
+                with lead_cols[l_idx % min(len(display_leads), 4)]:
                     p_index = str(lead_item.get("Paper Index") or f"Paper {l_idx+1}")
                     p_title = str(lead_item.get("Paper Title") or "Study")
                     lead_mol = str(lead_item.get("Lead Molecule") or "Lead Analogue")
@@ -1126,6 +1263,30 @@ if st.session_state.app_mode == "Multi-Paper Workspace":
                             st.session_state.active_paper_name = matching_paper_key
                             st.session_state.app_mode = "Single Paper Analysis"
                             st.rerun()
+
+            if num_cards > 8:
+                with st.expander(f"🏅 Browse All Remaining {num_cards - 8} Lead Molecules in Corpus", expanded=False):
+                    more_lead_cols = st.columns(4)
+                    for l_idx, lead_item in enumerate(comparison.lead_comparison_table[8:], start=8):
+                        with more_lead_cols[(l_idx - 8) % 4]:
+                            p_index = str(lead_item.get("Paper Index") or f"Paper {l_idx+1}")
+                            p_title = str(lead_item.get("Paper Title") or "Study")
+                            lead_mol = str(lead_item.get("Lead Molecule") or "Lead Analogue")
+                            potency_str = str(lead_item.get("Best Potency") or "N/A")
+                            target = str(lead_item.get("Target") or "Assay")
+                            render_html(f"""
+                            <div class="lead-showdown-card" style="margin-bottom: 8px; padding: 12px 14px;">
+                                <div style="font-size: 0.72rem; font-weight: 800; color: #B76E79;">{safe_html(p_index)}</div>
+                                <div style="font-size: 1.05rem; font-weight: 800; color: #8F2E44; margin: 2px 0;">{safe_html(lead_mol)}</div>
+                                <div style="font-size: 0.78rem; color: #065F46; font-weight: 700;">⚡ {safe_html(potency_str)} vs <i>{safe_html(target)}</i></div>
+                            </div>
+                            """)
+                            matching_paper_key = all_papers[l_idx][0] if l_idx < len(all_papers) else None
+                            if matching_paper_key:
+                                if st.button(f"🔍 Inspect in {p_index}", key=f"btn_inspect_lead_more_{l_idx}", use_container_width=True):
+                                    st.session_state.active_paper_name = matching_paper_key
+                                    st.session_state.app_mode = "Single Paper Analysis"
+                                    st.rerun()
 
             st.markdown("<br>", unsafe_allow_html=True)
             st.markdown("#### 📊 Comparative Potency & Feasibility Landscape")
@@ -1554,6 +1715,368 @@ if st.session_state.app_mode == "Multi-Paper Workspace":
 
 
         # ---------------------------------------------------------
+        # TAB 6: RELEVANCE FILTERING & DEEP QA
+        # ---------------------------------------------------------
+        with tab_relevance:
+            st.markdown("#### 🔍 Multi-Tier Relevance Screening & Scoped Deep QA")
+            st.caption(
+                "When working with large literature libraries (up to 100+ publications), execute a 3-tier relevance screening "
+                "pipeline to filter down to the most relevant candidate papers, and conduct deep interactive question-answering exclusively on those shortlisted studies."
+            )
+
+            # --- Corpus Scale Tools (Expandable) ---
+            with st.expander(f"📚 Corpus Scale Utilities: Batch Ingest or Load 100-Paper Library Demo (Currently: {num_loaded} Loaded)", expanded=(num_loaded < 4)):
+                st.markdown("##### ⚡ Instant 100-Paper Research Benchmark")
+                st.caption(
+                    "Evaluate the multi-tier screening pipeline at scale across 100 synthetic medicinal chemistry publications "
+                    "spanning EGFR/HER2 kinases, CDK4/6 cell cycle targets, Candida albicans natural products, "
+                    "catalytic cross-coupling synthesis, viral proteases (SARS-CoV-2 Mpro), and Alzheimer's BACE1."
+                )
+                col_scale1, col_scale2 = st.columns(2)
+                with col_scale1:
+                    if st.button("⚡ Populate 100-Paper Research Corpus Demo", key="btn_load_100_papers", use_container_width=True, type="primary"):
+                        with st.spinner("Generating 100-paper medicinal chemistry research corpus..."):
+                            benchmark_100 = RelevanceFilterEngine.generate_benchmark_library_100()
+                            st.session_state.papers_store.update(benchmark_100)
+                            st.toast("✅ 100 Research Publications Loaded into Corpus!", icon="📚")
+                            st.rerun()
+                with col_scale2:
+                    st.caption("Batch-ingest all PDF / TXT research papers from a directory on your filesystem:")
+                    dir_path_input = st.text_input("Folder Path on Disk:", value="sample_papers", key="relevance_folder_path")
+                    if st.button("📂 Ingest All Papers in Folder", key="btn_ingest_folder", use_container_width=True):
+                        if os.path.exists(dir_path_input):
+                            ingested_count = 0
+                            with st.spinner(f"Ingesting documents from `{dir_path_input}`..."):
+                                for fname in os.listdir(dir_path_input):
+                                    fpath = os.path.join(dir_path_input, fname)
+                                    if os.path.isfile(fpath) and fname.lower().endswith((".pdf", ".txt")):
+                                        ftype = "pdf" if fname.lower().endswith(".pdf") else "txt"
+                                        try:
+                                            if ftype == "pdf":
+                                                with open(fpath, "rb") as f:
+                                                    data = f.read()
+                                            else:
+                                                with open(fpath, "r", encoding="utf-8", errors="replace") as f:
+                                                    data = f.read()
+                                            ingest_paper_content(fname, ftype, data, api_key_input)
+                                            ingested_count += 1
+                                        except Exception as e:
+                                            print(f"Error ingesting {fname}: {e}")
+                            st.toast(f"✅ Ingested {ingested_count} papers from `{dir_path_input}`!", icon="📂")
+                            st.rerun()
+                        else:
+                            st.error(f"Directory not found: `{dir_path_input}`")
+
+            st.markdown("---")
+
+            # --- Step 1: Research Question & Screening Setup ---
+            st.markdown("##### 🎯 Step 1: Define Your Specific Research Question")
+            
+            # Suggested Research Inquiry Chips
+            st.caption("💡 Quick Inquiry Starters (Click to populate query):")
+            chip_col1, chip_col2 = st.columns(2)
+            with chip_col1:
+                if st.button("🎯 Covalent EGFR kinase inhibitors with nanomolar IC50 in lung cancer", key="rel_chip_1", use_container_width=True):
+                    st.session_state.relevance_active_query = "Find all papers evaluating covalent EGFR kinase inhibitors with sub-100 nM IC50 and their cellular antiproliferative activity."
+                if st.button("⚗️ Palladium-catalyzed cross-coupling with reaction yields above 80%", key="rel_chip_2", use_container_width=True):
+                    st.session_state.relevance_active_query = "Which studies report palladium-catalyzed Suzuki cross-coupling reaction yields above 80%?"
+            with chip_col2:
+                if st.button("🍄 Antifungal natural products evaluating Candida albicans MIC", key="rel_chip_3", use_container_width=True):
+                    st.session_state.relevance_active_query = "What natural products or flavonoids were evaluated for antifungal activity against Candida albicans?"
+                if st.button("🧬 Selective CDK4/6 cell cycle kinase inhibitors in breast carcinoma", key="rel_chip_4", use_container_width=True):
+                    st.session_state.relevance_active_query = "Identify papers characterizing selective CDK4/6 cell cycle kinase inhibitors for breast cancer."
+
+            default_q = st.session_state.get("relevance_active_query") or "Find all publications evaluating covalent EGFR kinase inhibitors with sub-100 nM IC50 and their synthetic routes."
+            research_query = st.text_input(
+                "Scientific Research Question / Filtering Intent:",
+                value=default_q,
+                placeholder="e.g. Find all papers evaluating covalent EGFR kinase inhibitors with sub-100 nM IC50 and their synthetic routes...",
+                key="relevance_query_text_input"
+            )
+
+            # Filtering Threshold Controls
+            ctl_col1, ctl_col2, ctl_col3 = st.columns([2, 2, 2])
+            with ctl_col1:
+                min_relevance_cutoff = st.slider(
+                    "Minimum Relevance Threshold (%):",
+                    min_value=10,
+                    max_value=90,
+                    value=45,
+                    step=5,
+                    help="Papers with composite relevance scores below this cutoff are screened out."
+                )
+            with ctl_col2:
+                max_shortlist_cap = st.slider(
+                    "Max Shortlist Size (Top N Papers):",
+                    min_value=2,
+                    max_value=20,
+                    value=8,
+                    step=1,
+                    help="Maximum number of top-ranked candidate publications to include in the shortlist."
+                )
+            with ctl_col3:
+                st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+                run_screening_btn = st.button(
+                    f"🚀 Screen {num_loaded} Publications",
+                    key="btn_run_relevance_screening",
+                    type="primary",
+                    use_container_width=True
+                )
+
+            # Execute Screening Pipeline
+            if run_screening_btn and research_query.strip():
+                with st.spinner(f"Executing 3-Tier Relevance Screening across {num_loaded} publications..."):
+                    screening_report = RelevanceFilterEngine.screen_library(
+                        query=research_query.strip(),
+                        papers_dict=st.session_state.papers_store,
+                        min_score=float(min_relevance_cutoff),
+                        max_shortlist=int(max_shortlist_cap)
+                    )
+                    st.session_state.relevance_screening_report = screening_report
+                    st.session_state.relevance_selected_ids = [p.paper_id for p in screening_report.shortlisted]
+                    st.session_state.relevance_active_query = research_query.strip()
+                    st.toast(f"✅ Screened {screening_report.total_screened} papers → {len(screening_report.shortlisted)} candidates shortlisted!", icon="🎯")
+
+            # --- Step 2: Screening Funnel & Shortlisted Candidates ---
+            if st.session_state.relevance_screening_report:
+                report: RelevanceScreeningReport = st.session_state.relevance_screening_report
+                
+                st.markdown("<br>", unsafe_allow_html=True)
+                st.markdown(f"##### 📊 Multi-Tier Screening Funnel Audit (Target: *\"{report.query}\"*)")
+                
+                # Funnel Metric Ribbon (5 Cards)
+                f_col1, f_col2, f_col3, f_col4, f_col5 = st.columns(5)
+                with f_col1:
+                    render_html(f"""
+                    <div class="funnel-kpi-card">
+                        <div class="funnel-kpi-title">Total Screened</div>
+                        <div class="funnel-kpi-val">{report.total_screened}</div>
+                        <div class="funnel-kpi-sub">Total publications in corpus</div>
+                    </div>
+                    """)
+                with f_col2:
+                    render_html(f"""
+                    <div class="funnel-kpi-card">
+                        <div class="funnel-kpi-title">Tier 1 Passed</div>
+                        <div class="funnel-kpi-val" style="color: #4338CA;">{report.tier1_passed}</div>
+                        <div class="funnel-kpi-sub">Bibliographic & abstract filter</div>
+                    </div>
+                    """)
+                with f_col3:
+                    render_html(f"""
+                    <div class="funnel-kpi-card">
+                        <div class="funnel-kpi-title">Tier 2 Passed</div>
+                        <div class="funnel-kpi-val" style="color: #0369A1;">{report.tier2_passed}</div>
+                        <div class="funnel-kpi-sub">Chemical entity & target match</div>
+                    </div>
+                    """)
+                with f_col4:
+                    render_html(f"""
+                    <div class="funnel-kpi-card">
+                        <div class="funnel-kpi-title">Tier 3 Shortlisted</div>
+                        <div class="funnel-kpi-val" style="color: #065F46;">{len(report.shortlisted)}</div>
+                        <div class="funnel-kpi-sub">Verified passage evidence</div>
+                    </div>
+                    """)
+                with f_col5:
+                    render_html(f"""
+                    <div class="funnel-kpi-card">
+                        <div class="funnel-kpi-title">Volume Reduction</div>
+                        <div class="funnel-kpi-val" style="color: #8F2E44;">{report.reduction_percentage}%</div>
+                        <div class="funnel-kpi-sub">Screened in {report.execution_time_seconds}s</div>
+                    </div>
+                    """)
+
+                st.markdown("<br>", unsafe_allow_html=True)
+                
+                # Shortlist Selection & Candidate Cards
+                st.markdown(f"##### 🏆 Shortlisted Candidate Publications ({len(report.shortlisted)} Papers Selected for Deep QA)")
+                st.caption("Check or uncheck publications below to adjust which papers are included in the exclusive Deep QA scope:")
+
+                shortlist_cols = st.columns([1, 1])
+                for idx, p_assess in enumerate(report.shortlisted):
+                    with shortlist_cols[idx % 2]:
+                        # Checkbox to include in QA
+                        is_selected = p_assess.paper_id in st.session_state.relevance_selected_ids
+                        chk_label = f"Include in Deep QA: **{p_assess.title[:45]}...**"
+                        new_checked = st.checkbox(chk_label, value=is_selected, key=f"chk_short_{idx}")
+                        
+                        if new_checked and p_assess.paper_id not in st.session_state.relevance_selected_ids:
+                            st.session_state.relevance_selected_ids.append(p_assess.paper_id)
+                        elif not new_checked and p_assess.paper_id in st.session_state.relevance_selected_ids:
+                            st.session_state.relevance_selected_ids.remove(p_assess.paper_id)
+
+                        badge_class = "relevance-badge-elite" if p_assess.composite_score >= 75.0 else "relevance-badge-mod"
+                        badge_icon = "💎" if p_assess.composite_score >= 75.0 else "⚡"
+                        
+                        target_tags = " ".join([f"<span class='metric-chip'>🎯 {safe_html(t)}</span>" for t in p_assess.matched_targets[:3]])
+                        comp_tags = " ".join([f"<span class='metric-chip'>🧪 {safe_html(c)}</span>" for c in p_assess.matched_compounds[:3]])
+                        kw_tags = " ".join([f"<span class='metric-chip'>🔑 {safe_html(k)}</span>" for k in p_assess.matched_keywords[:4]])
+
+                        render_html(f"""
+                        <div class="relevance-paper-card">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <span style="font-size: 0.76rem; font-weight: 800; color: #B76E79; text-transform: uppercase;">Rank #{p_assess.rank} Candidate</span>
+                                <span class="{badge_class}">{badge_icon} {p_assess.composite_score}% Match</span>
+                            </div>
+                            <div style="font-size: 1.05rem; font-weight: 800; color: #2D1D22; margin-bottom: 6px; line-height: 1.35;">
+                                {safe_html(p_assess.title)}
+                            </div>
+                            <div style="font-size: 0.78rem; color: #6C4C54; margin-bottom: 8px;">
+                                👤 {safe_html(p_assess.authors)} • 📖 <i>{safe_html(p_assess.journal)}</i>
+                            </div>
+                            <div style="margin-bottom: 8px; line-height: 1.6;">
+                                {target_tags} {comp_tags} {kw_tags}
+                            </div>
+                            <div style="font-size: 0.84rem; color: #374151; background: rgba(183, 110, 121, 0.08); padding: 8px 12px; border-radius: 8px; margin-bottom: 10px;">
+                                💡 <b>Match Rationale:</b> {safe_html(p_assess.match_rationale)}
+                            </div>
+                            <div class="relevance-quote-box">
+                                <span style="font-weight: 800; color: #B76E79; font-size: 0.75rem; text-transform: uppercase;">Premier Verifiable Evidence (Page {p_assess.source_page}):</span><br>
+                                "<i>{safe_html(p_assess.key_quote)}</i>"
+                            </div>
+                        </div>
+                        """)
+                        
+                        with st.expander(f"🔬 View 3-Tier Diagnostic Scoring for Rank #{p_assess.rank}", expanded=False):
+                            t1_col, t2_col, t3_col = st.columns(3)
+                            with t1_col:
+                                st.metric("Tier 1: Lexical Triage", f"{p_assess.tier1_result.score}%", "Passed" if p_assess.tier1_result.passed else "Borderline")
+                                st.caption(f"Matched terms: {', '.join(p_assess.tier1_result.details.get('matched_terms', [])) or 'None'}")
+                            with t2_col:
+                                st.metric("Tier 2: Entity Match", f"{p_assess.tier2_result.score}%", "Passed" if p_assess.tier2_result.passed else "Borderline")
+                                st.caption(f"Targets: {', '.join(p_assess.tier2_result.details.get('matched_targets', [])) or 'General'}")
+                            with t3_col:
+                                st.metric("Tier 3: Passage Density", f"{p_assess.tier3_result.score}%", "Verified" if p_assess.tier3_result.passed else "Sparse")
+                                st.caption(f"Page {p_assess.source_page} evidence excerpt verified")
+
+                        if st.button(f"🔍 Jump to {p_assess.paper_id[:25]} in Single Paper View", key=f"btn_jump_short_{idx}", use_container_width=True):
+                            st.session_state.active_paper_name = p_assess.paper_id
+                            st.session_state.app_mode = "Single Paper Analysis"
+                            st.rerun()
+
+                # Expandable Excluded Papers Audit
+                if report.excluded:
+                    with st.expander(f"🚫 View Screened Out Publications Audit ({len(report.excluded)} Excluded Papers)", expanded=False):
+                        st.caption("Detailed transparency log of literature excluded during multi-tier screening:")
+                        ex_rows = []
+                        for ex in report.excluded:
+                            ex_rows.append({
+                                "Paper": ex.title[:45] + "...",
+                                "Composite Score": f"{ex.composite_score}%",
+                                "Tier 1 (Lexical)": f"{ex.tier1_result.score}%",
+                                "Tier 2 (Entity)": f"{ex.tier2_result.score}%",
+                                "Tier 3 (Evidence)": f"{ex.tier3_result.score}%",
+                                "Exclusion Rationale": ex.match_rationale
+                            })
+                        st.dataframe(pd.DataFrame(ex_rows), use_container_width=True)
+
+                st.markdown("<br><hr>", unsafe_allow_html=True)
+
+                # --- Step 3: Interactive Deep QA Exclusively on Shortlisted Papers ---
+                active_assessments = [p for p in report.shortlisted if p.paper_id in st.session_state.relevance_selected_ids]
+                
+                st.markdown(f"##### 💬 Step 2: Interactive Deep QA (Scoped Strictly to {len(active_assessments)} Shortlisted Papers)")
+                st.caption(
+                    f"Ask specific, comparative, or synthetic chemistry questions. Responses are synthesized with Gemini 3.8 Flash "
+                    f"and strictly grounded **exclusively in the {len(active_assessments)} active shortlisted publications** with verifiable citations."
+                )
+
+                # Suggested Deep QA Chips
+                st.markdown("###### 💡 Suggested Shortlist Inquiries")
+                qa_chip1, qa_chip2 = st.columns(2)
+                with qa_chip1:
+                    if st.button("📊 Compare lead potencies, IC50s, and targets across shortlisted papers", key="qa_chip_1", use_container_width=True):
+                        st.session_state.relevance_pending_q = "Compare the lead compounds, exact potencies, and biological targets reported in these shortlisted papers."
+                    if st.button("⚗️ Contrast the synthetic routes, catalysts, and isolated yields", key="qa_chip_2", use_container_width=True):
+                        st.session_state.relevance_pending_q = "Contrast the synthetic transformations, reaction conditions, catalysts, and isolated yields across the shortlisted studies."
+                with qa_chip2:
+                    if st.button("⚠️ Are there any conflicting bioactivity measurements or discrepancies?", key="qa_chip_3", use_container_width=True):
+                        st.session_state.relevance_pending_q = "Are there any conflicting biological activity measurements or methodological discrepancies between these shortlisted papers?"
+                    if st.button("🔬 Summarize the SAR trends and scaffold modifications", key="qa_chip_4", use_container_width=True):
+                        st.session_state.relevance_pending_q = "Summarize the overarching structure-activity relationship (SAR) trends and chemical modifications identified across the shortlisted literature."
+
+                # Deep QA Chat History Container
+                rel_chat_container = st.container()
+                with rel_chat_container:
+                    if not st.session_state.relevance_qa_chat:
+                        render_html(f"""
+                        <div style="background: rgba(253, 242, 240, 0.85); border: 1px dashed rgba(183, 110, 121, 0.45); border-radius: 12px; padding: 20px; text-align: center; color: #8F2E44; font-size: 0.92rem;">
+                            💬 <b>No questions asked yet on the shortlisted corpus.</b><br>
+                            Click a suggested inquiry above or enter a comparative question below to consult the Deep QA assistant across the {len(active_assessments)} shortlisted candidate publications.
+                        </div>
+                        """)
+                    else:
+                        st.caption("⏱️ **Shortlisted Q&A History:** Most recent inquiry displayed on top.")
+                        pairs = []
+                        for i in range(0, len(st.session_state.relevance_qa_chat), 2):
+                            u_msg = st.session_state.relevance_qa_chat[i]
+                            a_msg = st.session_state.relevance_qa_chat[i+1] if i+1 < len(st.session_state.relevance_qa_chat) else None
+                            pairs.append((i // 2, u_msg, a_msg))
+
+                        for pair_idx, u_msg, a_msg in reversed(pairs):
+                            with st.chat_message(u_msg["role"]):
+                                st.markdown(u_msg["content"])
+                            if a_msg:
+                                with st.chat_message(a_msg["role"]):
+                                    st.markdown(a_msg["content"])
+                                    if st.button("📌 Pin to Scratchpad", key=f"rel_pin_{pair_idx}", help="Save to Floating Researcher Scratchpad"):
+                                        pin_text = f"\n\n---\n#### 🔍 Deep QA ({len(active_assessments)} Shortlisted Papers): {u_msg['content']}\n{a_msg['content']}\n"
+                                        st.session_state.researcher_notes = (
+                                            st.session_state.get("researcher_notes", "") + pin_text
+                                        )
+                                        st.session_state.last_pinned_note = pin_text
+                                        st.toast("📌 Saved to Floating Researcher Scratchpad!", icon="📝")
+                                        st.rerun()
+
+                # User Input or Pending Chip
+                user_qa_input = st.chat_input("Ask a question exclusively about the shortlisted papers...", key="relevance_chat_input")
+                query_to_run = user_qa_input or st.session_state.get("relevance_pending_q")
+
+                if query_to_run:
+                    if "relevance_pending_q" in st.session_state:
+                        del st.session_state["relevance_pending_q"]
+
+                    st.session_state.relevance_qa_chat.append({"role": "user", "content": query_to_run})
+
+                    with st.spinner(f"Synthesizing Deep QA answer across {len(active_assessments)} shortlisted candidate publications..."):
+                        qa_result: DeepQAResponse = RelevanceFilterEngine.ask_deep_qa(
+                            question=query_to_run,
+                            shortlisted_assessments=active_assessments,
+                            papers_store=st.session_state.papers_store,
+                            api_key=api_key_input
+                        )
+                        st.session_state.relevance_qa_chat.append({"role": "assistant", "content": qa_result.full_markdown})
+                    st.rerun()
+
+                if st.session_state.relevance_qa_chat:
+                    if st.button("🗑️ Clear Deep QA Chat History", key="clear_rel_chat", use_container_width=True):
+                        st.session_state.relevance_qa_chat = []
+                        st.rerun()
+
+            else:
+                # If screening has not been run yet
+                render_html(f"""
+                <div style="background: rgba(255, 255, 255, 0.94); border: 1px solid rgba(183, 110, 121, 0.35); border-left: 6px solid #B76E79; border-radius: 14px; padding: 22px 24px; margin-top: 16px; box-shadow: 0 4px 18px rgba(183, 110, 121, 0.1);">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                        <span style="font-size: 1.25rem;">🔍</span>
+                        <h4 style="margin: 0; color: #9F3E54; font-weight: 800; font-size: 1.15rem;">Multi-Tier Relevance Screening Pipeline Ready</h4>
+                    </div>
+                    <div style="color: #2D1D22; line-height: 1.7; font-size: 0.93rem;">
+                        Enter your specific research query above and click <b>🚀 Screen {num_loaded} Publications</b> to execute:
+                        <ul style="margin: 8px 0 0 16px; padding: 0;">
+                            <li><b>Tier 1:</b> High-recall Bibliographic & Abstract Triage (BM25 + chemical synonym expansion).</li>
+                            <li><b>Tier 2:</b> Chemical Entity & Target Concordance (structured target enzymes, cell lines, IC50 values, reaction catalysts).</li>
+                            <li><b>Tier 3:</b> Deep Evidence Density & Verifiable Full-Text Passage Scoring.</li>
+                        </ul>
+                        The candidate papers will be shortlisted with exact match rationales and citations, enabling focused Deep QA exclusively on that literature subset.
+                    </div>
+                </div>
+                """)
+
+
+
+        # ---------------------------------------------------------
         # BOTTOM ACTION BAR
         # ---------------------------------------------------------
         st.markdown("<br>", unsafe_allow_html=True)
@@ -1644,6 +2167,13 @@ Generated for {num_loaded} Publications
                         ingest_paper_content("Paper 2: Catalytic Synthesis Discrepancy", "txt", f.read(), api_key_input)
                 st.rerun()
 
+            if st.button("⚡ Load 100-Paper Library (Relevance Filtering Demo)", key="stage_add_100", use_container_width=True, type="primary"):
+                benchmark_100 = RelevanceFilterEngine.generate_benchmark_library_100()
+                st.session_state.papers_store.update(benchmark_100)
+                st.session_state.app_mode = "Multi-Paper Workspace"
+                st.toast("✅ 100 Research Publications Loaded into Corpus!", icon="📚")
+                st.rerun()
+
             if st.button("⬅️ View Active Paper Individually", key="stage_btn_single", use_container_width=True):
                 st.session_state.app_mode = "Single Paper Analysis"
                 st.rerun()
@@ -1652,8 +2182,18 @@ Generated for {num_loaded} Publications
 
     else:
         st.markdown("## 📚 Multi-Paper Comparison Workspace")
-        st.info("No publications loaded yet. Please upload 2 or more publications to compare:")
-        render_paper_ingestion_ui(key_prefix="multi_empty", title="📂 Ingest Publications for Comparison", api_key=api_key_input)
+        col_emp1, col_emp2 = st.columns([3, 1])
+        with col_emp1:
+            render_paper_ingestion_ui(key_prefix="multi_empty", title="📂 Ingest Publications for Comparison", api_key=api_key_input)
+        with col_emp2:
+            st.markdown("#### ⚡ Quick Starters")
+            st.caption("Instantly populate a massive corpus for multi-tier screening:")
+            if st.button("⚡ Load 100-Paper Benchmark Library", key="empty_add_100", use_container_width=True, type="primary"):
+                benchmark_100 = RelevanceFilterEngine.generate_benchmark_library_100()
+                st.session_state.papers_store.update(benchmark_100)
+                st.session_state.app_mode = "Multi-Paper Workspace"
+                st.toast("✅ 100 Research Publications Loaded into Corpus!", icon="📚")
+                st.rerun()
         st.stop()
 
 
@@ -1964,15 +2504,40 @@ def render_qa_section(pages: List[PageContent], engine: EvidenceEngine, analysis
             with st.chat_message("assistant"):
                 resp: QAResponse = item["response"]
 
+                # Professional Executive Header & Badges
+                conf_pct = int((getattr(resp, "confidence_score", 0.95) or 0.95) * 100)
                 if resp.status == "found":
-                    st.markdown('<span class="status-found">🟢 Evidence Verified in Document</span>', unsafe_allow_html=True)
+                    status_badge = (
+                        f'<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid rgba(0,0,0,0.06); padding-bottom: 6px;">'
+                        f'<span class="status-found" style="font-size: 0.78rem; font-weight: 700;">🟢 Executive Scientific Finding • Grounded in Document</span>'
+                        f'<span style="font-size: 0.72rem; font-weight: 700; color: #166534; background: #DCFCE7; padding: 2px 8px; border-radius: 999px;">🎯 Grounding Confidence: {conf_pct}%</span>'
+                        f'</div>'
+                    )
                 elif resp.status == "absent":
-                    st.markdown('<span class="status-absent">🔴 No Supporting Evidence Found</span>', unsafe_allow_html=True)
+                    status_badge = (
+                        f'<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid rgba(0,0,0,0.06); padding-bottom: 6px;">'
+                        f'<span class="status-absent" style="font-size: 0.78rem; font-weight: 700;">🔴 No Supporting Literature Evidence Found</span>'
+                        f'<span style="font-size: 0.72rem; font-weight: 700; color: #991B1B; background: #FEE2E2; padding: 2px 8px; border-radius: 999px;">Strict Anti-Hallucination Guardrail</span>'
+                        f'</div>'
+                    )
                 elif resp.status == "conflicting":
-                    st.markdown('<span class="status-conflict">⚠️ Conflicting Evidence Detected - Flagged for Review</span>', unsafe_allow_html=True)
+                    status_badge = (
+                        f'<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid rgba(0,0,0,0.06); padding-bottom: 6px;">'
+                        f'<span class="status-conflict" style="font-size: 0.78rem; font-weight: 700;">⚠️ Conflicting Literature Evidence Detected</span>'
+                        f'<span style="font-size: 0.72rem; font-weight: 700; color: #92400E; background: #FEF3C7; padding: 2px 8px; border-radius: 999px;">Flagged for Human Review</span>'
+                        f'</div>'
+                    )
                 elif resp.status == "external_literature":
-                    st.markdown('<span class="status-external">🌐 Broader Scientific Literature & Related Papers</span>', unsafe_allow_html=True)
+                    status_badge = (
+                        f'<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid rgba(0,0,0,0.06); padding-bottom: 6px;">'
+                        f'<span class="status-external" style="font-size: 0.78rem; font-weight: 700;">🌐 Broader Scientific Literature Synthesis (PubMed / NCBI)</span>'
+                        f'<span style="font-size: 0.72rem; font-weight: 700; color: #1E40AF; background: #DBEAFE; padding: 2px 8px; border-radius: 999px;">External Literature Benchmark</span>'
+                        f'</div>'
+                    )
+                else:
+                    status_badge = ""
 
+                st.markdown(status_badge, unsafe_allow_html=True)
                 st.markdown(resp.answer)
 
                 # Interactive button to explore external literature if absent

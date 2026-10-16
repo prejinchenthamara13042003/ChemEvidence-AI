@@ -119,20 +119,26 @@ class MultilingualChemBot:
         }
     }
 
-    def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
-        self.client = None
-        if self.api_key and HAS_GENAI:
-            try:
-                self.client = genai.Client(api_key=self.api_key, http_options={"timeout": 60000})
-            except Exception as e:
-                print(f"[MultilingualChemBot] Client init error: {e}")
-                self.client = None
+    def __init__(self, api_key: Optional[str] = None, use_local_only: bool = False):
+        if use_local_only or api_key == "none":
+            self.api_key = None
+            self.client = None
+        else:
+            self.api_key = api_key or os.getenv("GEMINI_API_KEY")
+            self.client = None
+            if self.api_key and HAS_GENAI:
+                try:
+                    self.client = genai.Client(api_key=self.api_key, http_options={"timeout": 60000})
+                except Exception as e:
+                    print(f"[MultilingualChemBot] Client init error: {e}")
+                    self.client = None
 
     @classmethod
     def detect_language(cls, text: str, user_choice: str = "Auto-Detect") -> Tuple[str, str]:
         """
         Detects the language of the prompt or honors user selection.
+        Supports explicit prompt requests (e.g. 'explain in Spanish', 'answer in Malayalam'),
+        script Unicode detection, and linguistic keyword patterns.
         Returns (language_code, language_display_name).
         """
         # 1. User manual override
@@ -144,7 +150,32 @@ class MultilingualChemBot:
                     meta["native"].lower() in clean_choice):
                     return code, meta["name"]
 
-        # 2. Unicode script-based automatic detection
+        # 2. Check for explicit language requests in user prompt (e.g. 'in Spanish', 'answer in Malayalam')
+        lower_t = text.lower()
+        explicit_patterns = [
+            (r"(?:in|to|auf|en|dans|con)\s+(?:simple\s+)?(malayalam|മലയാളം|malayalamil)", "ml"),
+            (r"(?:in|to|auf|en|dans|con)\s+(?:simple\s+)?(hindi|हिंदी|hindi mein)", "hi"),
+            (r"(?:in|to|auf|en|dans|con)\s+(?:simple\s+)?(tamil|தமிழ்|tamilil)", "ta"),
+            (r"(?:in|to|auf|en|dans|con)\s+(?:simple\s+)?(german|deutsch)", "de"),
+            (r"(?:in|to|auf|en|dans|con)\s+(?:simple\s+)?(spanish|español|castellano)", "es"),
+            (r"(?:in|to|auf|en|dans|con)\s+(?:simple\s+)?(french|français)", "fr"),
+            (r"(?:in|to|auf|en|dans|con)\s+(?:simple\s+)?(arabic|العربية)", "ar"),
+            (r"(?:in|to|auf|en|dans|con)\s+(?:simple\s+)?(chinese|中文|mandarin)", "zh"),
+            (r"(?:in|to|auf|en|dans|con)\s+(?:simple\s+)?(english)", "en"),
+            (r"(?:മലയാളത്തിൽ|മലയാളം|malayalam)", "ml"),
+            (r"(?:हिंदी में|हिन्दी में)", "hi"),
+            (r"(?:தமிழில்)", "ta"),
+            (r"(?:auf deutsch)", "de"),
+            (r"(?:en español)", "es"),
+            (r"(?:en français)", "fr"),
+            (r"(?:باللغة العربية|بالعربية)", "ar"),
+            (r"(?:用中文|中文回答)", "zh"),
+        ]
+        for pat, code in explicit_patterns:
+            if re.search(pat, lower_t):
+                return code, cls.SUPPORTED_LANGUAGES[code]["name"]
+
+        # 3. Unicode script-based automatic detection
         if re.search(r"[\u0D00-\u0D7F]", text):
             return "ml", "Malayalam"
         if re.search(r"[\u0900-\u097F]", text):
@@ -156,9 +187,7 @@ class MultilingualChemBot:
         if re.search(r"[\u4E00-\u9FFF]", text):
             return "zh", "Chinese"
 
-        # 3. European Latin-based linguistic patterns
-        lower_t = text.lower()
-
+        # 4. European Latin-based linguistic patterns
         # French: distinctive French words or accents
         if (re.search(r"\b(quel|quelle|quels|quelles|comment|pourquoi|cette|dans|avec|lequel|laquelle|rendement|est-ce)\b", lower_t) or
             re.search(r"[çàùâêîôûœ]", lower_t)):
@@ -340,26 +369,26 @@ class MultilingualChemBot:
             if h_lines:
                 history_context_str = "RECENT CONVERSATION HISTORY (FOR PRONOUN AND CONTEXT RESOLUTION):\n" + "\n---\n".join(h_lines) + "\n\n"
 
-        prompt = f"""You are ChemBot, an expert friendly multilingual chemistry assistant and mentor.
-The user wants a PROPER, SIMPLE, CLEAR, AND EASY-TO-UNDERSTAND answer to their chemistry question.
+        prompt = f"""You are ChemBot, an exceptionally friendly, approachable, and encouraging multilingual chemistry study buddy and mentor 😊.
+The user wants a SUPER USER-FRIENDLY, PLAIN-LANGUAGE, CLEAR, AND EASY-TO-UNDERSTAND answer to their chemistry question.
 
-CRITICAL INSTRUCTIONS:
-1. TARGET LANGUAGE: You MUST provide your entire answer in {lang_name} ({native_name}).
-2. SIMPLICITY LEVEL: {simplicity_level}. Use everyday, plain language. Avoid dense, impenetrable academic jargon.
-3. ACCURACY & METRIC PRECISION: Be scientifically accurate with exact numbers and metrics. Strictly distinguish between enzymatic IC50, cellular growth inhibition GI50/CC50, and antimicrobial MIC. Never confuse a cell line metric (like A549 GI50) with an enzyme target metric (like EGFR IC50).
-4. CHEMICAL NOMENCLATURE & METRIC PRESERVATION:
-   - DO NOT phonetically translate or alter chemical formulas (e.g. Pd(OAc)2, DMSO, CDCl3, H2O), IUPAC or standard chemical names, compound labels (e.g. 'Compound 3b', '4a'), target proteins (e.g. EGFR, CDK4, HER2), cell lines (e.g. A549, HeLa, Vero), or scientific units (nM, µM, mg/kg, °C, %).
-   - Keep all chemical formulas, compound IDs, targets, and units in their exact standard international scientific alphanumeric notation, even while explaining concepts fluently in {lang_name}.
+CRITICAL USER-FRIENDLY & MULTILINGUAL INSTRUCTIONS:
+1. TARGET LANGUAGE: You MUST provide your entire response naturally, fluently, and idiomatically in {lang_name} ({native_name}).
+2. USER-FRIENDLY & WELCOMING TONE: Be warm, positive, clear, and encouraging! Speak like a friendly mentor who loves helping people understand chemistry easily. Avoid dense, impenetrable academic jargon. Break complex chemistry down into simple, intuitive concepts.
+3. INTUITIVE EVERYDAY ANALOGIES: Use vivid, relatable real-world analogies (e.g. custom key in a lock for targeted inhibition, high-yield baking recipe with zero waste, molecular shield against drug resistance) to make the science easy to visualize.
+4. CHEMICAL ACCURACY & ENTITY PRESERVATION:
+   - Keep all international chemical formulas (e.g. Pd(OAc)2, DMSO, CDCl3, H2O), IUPAC or common names, compound labels (e.g. 'Compound 3b', '4a'), target proteins (e.g. EGFR, CDK4, HER2), cell lines (e.g. A549, HeLa, Vero), and standard units (nM, µM, mg/kg, °C, %) in their standard alphanumeric notation.
+   - Strictly distinguish between enzymatic inhibition (IC50, Ki) and cellular growth inhibition (GI50, CC50).
 5. STRUCTURE: You MUST organize your response exactly into the following 4 sections using these exact headers:
 
 ### {headers['simple_title']}
-(A friendly 2-3 sentence overview that answers the user's question directly in simple words so anyone can understand it).
+(A friendly, warm, plain-language 2-3 sentence overview that directly answers the question so anyone can immediately understand it).
 
 ### {headers['facts_title']}
-(3-4 bullet points highlighting key molecules, chemical names, exact numbers like IC50/GI50 or yields, enzymes, reagents, and conditions).
+(3-4 clear bullet points highlighting key molecules, chemical names, exact numbers like IC50/GI50 or yields %, enzymes, reagents, and conditions in plain terms).
 
 ### {headers['meaning_title']}
-(An intuitive everyday analogy or real-world practical explanation of why this matters, e.g., how the drug works like a key in a lock, or why high yield saves cost).
+(A fun, intuitive everyday analogy or practical explanation of why this matters, e.g. how the drug works like a tailored key in a lock, or why high yield saves reaction cost).
 
 ### {headers['source_title']}
 (Grounded page citation from the paper if available {f'[e.g. {top_citations_ref}]' if top_citations_ref else ''}, or a note clarifying general chemistry context).

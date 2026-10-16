@@ -1170,17 +1170,58 @@ def render_floating_round_chatbot(
             </div>
             """, unsafe_allow_html=True)
 
+            # Language Selection Control
+            if "chembot_language_choice" not in st.session_state:
+                st.session_state.chembot_language_choice = "Auto-Detect"
+
+            lang_options = [
+                "Auto-Detect",
+                "English (🇬🇧)",
+                "മലയാളം - Malayalam (🇮🇳)",
+                "हिंदी - Hindi (🇮🇳)",
+                "தமிழ் - Tamil (🇮🇳)",
+                "Español - Spanish (🇪🇸)",
+                "Français - French (🇫🇷)",
+                "Deutsch - German (🇩🇪)",
+                "العربية - Arabic (🇸🇦)",
+                "中文 - Chinese (🇨🇳)",
+            ]
+            current_choice = st.session_state.chembot_language_choice
+            curr_idx = 0
+            for opt_idx, opt in enumerate(lang_options):
+                if current_choice.lower() in opt.lower():
+                    curr_idx = opt_idx
+                    break
+
+            col_lang_sel, col_lang_badge = st.columns([2.2, 1.2])
+            with col_lang_sel:
+                selected_lang = st.selectbox(
+                    "🌐 Response Language",
+                    options=lang_options,
+                    index=curr_idx,
+                    key=f"{key_prefix}_lang_selector",
+                    help="Choose your preferred response language, or leave on Auto-Detect."
+                )
+                st.session_state.chembot_language_choice = selected_lang
+            with col_lang_badge:
+                active_lang_display = selected_lang.split("-")[0].strip() if "-" in selected_lang else selected_lang
+                st.markdown(
+                    f"<div style='margin-top: 24px; text-align: center; font-size: 0.75rem; font-weight: 700; color: #8F2E44; background: #FDF2F0; padding: 5px 8px; border-radius: 8px; border: 1px solid rgba(183,110,121,0.25);'>"
+                    f"🗣️ {active_lang_display}</div>",
+                    unsafe_allow_html=True
+                )
+
             clicked_starter = None
 
             # Empty State: Friendly Greeting
             if not st.session_state.chembot_chat_history:
                 st.markdown("""
-                <div style="background: #FDF2F0; border-radius: 14px; padding: 14px 16px; margin-bottom: 12px; border: 1px solid rgba(183, 110, 121, 0.25);">
+                <div style="background: #FDF2F0; border-radius: 14px; padding: 14px 16px; margin-top: 6px; margin-bottom: 12px; border: 1px solid rgba(183, 110, 121, 0.25);">
                     <div style="font-weight: 800; color: #5B2B3D; font-size: 1.12rem; margin-bottom: 4px;">
                         How can I help you buddy? 😊
                     </div>
                     <div style="font-size: 0.85rem; color: #6C4C54; line-height: 1.45;">
-                        Ask me any question in your language. I will give you a simple, clear answer! If you need in-depth scientific details, just ask or click <i>🔍 Explain in depth</i>.
+                        Ask me any chemistry question in your preferred language! I will give you a clear, friendly, and easy-to-understand answer with intuitive real-world analogies. If you need in-depth scientific breakdown, just click <i>🔍 Explain in depth</i>.
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
@@ -1207,6 +1248,16 @@ def render_floating_round_chatbot(
 
                         # Assistant message
                         with st.chat_message("assistant", avatar="🤖"):
+                            lang_label = item.get("language", "English")
+                            st.markdown(f"""
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                <span style="font-size: 0.74rem; font-weight: 700; color: #8F2E44; background: rgba(183, 110, 121, 0.14); padding: 2px 8px; border-radius: 999px;">
+                                    🌐 Responding in {lang_label}
+                                </span>
+                                <span style="font-size: 0.72rem; color: #7A5C61; font-weight: 500;">✨ Friendly Chemistry Mentor</span>
+                            </div>
+                            """, unsafe_allow_html=True)
+
                             st.markdown(item["simple_answer"])
 
                             is_depth = idx in st.session_state.chembot_expanded_in_depth
@@ -1216,7 +1267,6 @@ def render_floating_round_chatbot(
                                     if st.button("🔍 Explain in depth", key=f"{key_prefix}_btn_depth_{idx}", help="View detailed mechanism, exact numbers, and citations"):
                                         st.session_state.chembot_expanded_in_depth.add(idx)
                                         st.rerun()
-                                parse_lang = item.get("language", "")
                                 with col_b2:
                                     if st.button("📌 Pin", key=f"{key_prefix}_btn_pin_{idx}", help="Save to Floating Scratchpad"):
                                         pin_text = f"\n\n---\n#### 🤖 ChemBot: {item['question']}\n{item['simple_answer']}\n"
@@ -1269,12 +1319,13 @@ def render_floating_round_chatbot(
                 else:
                     active_key = api_key_input or os.getenv("GEMINI_API_KEY")
                     bot = MultilingualChemBot(api_key=active_key)
+                    lang_pref = st.session_state.get("chembot_language_choice", "Auto-Detect")
                     with st.spinner("Thinking simply in your language..."):
                         bot_resp: MultilingualBotResponse = bot.answer(
                             query=active_q,
                             analysis=analysis,
                             pages=pages,
-                            language_choice="Auto-Detect",
+                            language_choice=lang_pref,
                             simplicity_level="Simple & Everyday",
                             engine=engine,
                             chat_history=st.session_state.chembot_chat_history[-3:] if st.session_state.chembot_chat_history else None
