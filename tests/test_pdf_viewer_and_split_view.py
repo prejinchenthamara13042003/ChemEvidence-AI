@@ -19,8 +19,9 @@ from src.ui_components import (
 class TestPDFViewerAndSplitView(unittest.TestCase):
 
     def setUp(self):
-        self.sample_pdf_path = "/Users/prejin/Thesis/sample_papers/paper1_kinase_inhibitors.pdf"
-        self.sample_txt_path = "/Users/prejin/Thesis/sample_papers/paper1_kinase_inhibitors.txt"
+        sample_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sample_papers")
+        self.sample_pdf_path = os.path.join(sample_dir, "paper1_kinase_inhibitors.pdf")
+        self.sample_txt_path = os.path.join(sample_dir, "paper1_kinase_inhibitors.txt")
         with open(self.sample_pdf_path, "rb") as f:
             self.pdf_bytes = f.read()
         with open(self.sample_txt_path, "r", encoding="utf-8") as f:

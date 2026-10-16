@@ -10,6 +10,7 @@ Unit tests for Advanced ChemEvidence AI Features:
 - Multi-paper comparison
 """
 
+import os
 import unittest
 from core.pdf_parser import DocumentParser
 from core.evidence_engine import EvidenceEngine
@@ -28,8 +29,9 @@ class TestAdvancedFeatures(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        sample_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sample_papers")
         # Ingest Paper 1
-        with open("/Users/prejin/Thesis/sample_papers/paper1_kinase_inhibitors.txt", "r", encoding="utf-8") as f:
+        with open(os.path.join(sample_dir, "paper1_kinase_inhibitors.txt"), "r", encoding="utf-8") as f:
             p1_text = f.read()
         cls.pages_p1 = DocumentParser.parse_text_content(p1_text)
         cls.meta_p1 = DocumentParser.extract_metadata(cls.pages_p1)
@@ -38,7 +40,7 @@ class TestAdvancedFeatures(unittest.TestCase):
         cls.analysis_p1 = extractor.analyze_paper(cls.pages_p1, cls.meta_p1, cls.engine_p1)
 
         # Ingest Paper 2
-        with open("/Users/prejin/Thesis/sample_papers/paper2_catalytic_synthesis_conflicts.txt", "r", encoding="utf-8") as f:
+        with open(os.path.join(sample_dir, "paper2_catalytic_synthesis_conflicts.txt"), "r", encoding="utf-8") as f:
             p2_text = f.read()
         cls.pages_p2 = DocumentParser.parse_text_content(p2_text)
         cls.meta_p2 = DocumentParser.extract_metadata(cls.pages_p2)

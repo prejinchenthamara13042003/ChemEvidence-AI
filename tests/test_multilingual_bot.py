@@ -8,6 +8,7 @@ Tests:
 - Resilience with and without uploaded paper analysis
 """
 
+import os
 import unittest
 from core.pdf_parser import DocumentParser
 from core.evidence_engine import EvidenceEngine
@@ -20,7 +21,8 @@ class TestMultilingualChemBot(unittest.TestCase):
     def setUp(self):
         self.bot = MultilingualChemBot(api_key=None, use_local_only=True)  # Use local multilingual engine
 
-        txt_path = "/Users/prejin/Thesis/sample_papers/paper1_kinase_inhibitors.txt"
+        sample_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sample_papers")
+        txt_path = os.path.join(sample_dir, "paper1_kinase_inhibitors.txt")
         with open(txt_path, "r", encoding="utf-8") as f:
             content = f.read()
         self.pages = DocumentParser.parse_text_content(content)

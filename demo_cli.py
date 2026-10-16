@@ -27,7 +27,7 @@ def main():
     print("⚗️  ChemEvidence AI — Advanced Chemistry Literature Intelligence Platform")
     print("=" * 75)
 
-    sample_dir = "/Users/prejin/Thesis/sample_papers"
+    sample_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sample_papers")
     sample_paper = os.path.join(sample_dir, "paper1_kinase_inhibitors.pdf")
     
     print(f"\n[1/5] Ingesting & Parsing Literature: {os.path.basename(sample_paper)}...")

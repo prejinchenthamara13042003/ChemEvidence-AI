@@ -149,7 +149,7 @@ def create_pdf_from_text(txt_path: str, pdf_path: str):
 
 
 def main():
-    base_dir = "/Users/prejin/Thesis/sample_papers"
+    base_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sample_papers")
     papers = [
         ("paper1_kinase_inhibitors.txt", "paper1_kinase_inhibitors.pdf"),
         ("paper2_catalytic_synthesis_conflicts.txt", "paper2_catalytic_synthesis_conflicts.pdf"),

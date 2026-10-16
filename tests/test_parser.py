@@ -10,8 +10,9 @@ from core.pdf_parser import DocumentParser, PageContent
 class TestDocumentParser(unittest.TestCase):
 
     def setUp(self):
-        self.sample_txt = "/Users/prejin/Thesis/sample_papers/paper1_kinase_inhibitors.txt"
-        self.sample_pdf = "/Users/prejin/Thesis/sample_papers/paper1_kinase_inhibitors.pdf"
+        sample_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sample_papers")
+        self.sample_txt = os.path.join(sample_dir, "paper1_kinase_inhibitors.txt")
+        self.sample_pdf = os.path.join(sample_dir, "paper1_kinase_inhibitors.pdf")
 
     def test_parse_text_file(self):
         with open(self.sample_txt, "r", encoding="utf-8") as f:

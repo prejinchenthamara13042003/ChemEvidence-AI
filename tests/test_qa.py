@@ -7,17 +7,20 @@ Tests:
 - Ambiguity and conflict detection
 """
 
+import os
 import unittest
 from core.pdf_parser import DocumentParser
 from core.evidence_engine import EvidenceEngine
 from core.chemistry_extractor import ChemistryExtractor
 from core.qa_system import QASystem
 
+SAMPLE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sample_papers")
+
 
 class TestQASystem(unittest.TestCase):
 
     def test_structured_overview_extraction(self):
-        txt_path = "/Users/prejin/Thesis/sample_papers/paper1_kinase_inhibitors.txt"
+        txt_path = os.path.join(SAMPLE_DIR, "paper1_kinase_inhibitors.txt")
         with open(txt_path, "r", encoding="utf-8") as f:
             content = f.read()
         pages = DocumentParser.parse_text_content(content)
@@ -38,7 +41,7 @@ class TestQASystem(unittest.TestCase):
         self.assertGreaterEqual(first_comp.evidence.page_number, 1)
 
     def test_positive_qa_with_evidence(self):
-        txt_path = "/Users/prejin/Thesis/sample_papers/paper1_kinase_inhibitors.txt"
+        txt_path = os.path.join(SAMPLE_DIR, "paper1_kinase_inhibitors.txt")
         with open(txt_path, "r", encoding="utf-8") as f:
             content = f.read()
         pages = DocumentParser.parse_text_content(content)
@@ -53,7 +56,7 @@ class TestQASystem(unittest.TestCase):
         self.assertIn(resp.citations[0].page_number, [1, 2, 3, 4])
 
     def test_strict_absence_detection(self):
-        txt_path = "/Users/prejin/Thesis/sample_papers/paper3_natural_product_sar.txt"
+        txt_path = os.path.join(SAMPLE_DIR, "paper3_natural_product_sar.txt")
         with open(txt_path, "r", encoding="utf-8") as f:
             content = f.read()
         pages = DocumentParser.parse_text_content(content)
@@ -90,7 +93,7 @@ class TestQASystem(unittest.TestCase):
         self.assertIn(resp.related_papers[0]["title"], resp.answer)
 
     def test_conflict_detection(self):
-        txt_path = "/Users/prejin/Thesis/sample_papers/paper2_catalytic_synthesis_conflicts.txt"
+        txt_path = os.path.join(SAMPLE_DIR, "paper2_catalytic_synthesis_conflicts.txt")
         with open(txt_path, "r", encoding="utf-8") as f:
             content = f.read()
         pages = DocumentParser.parse_text_content(content)
@@ -109,7 +112,7 @@ class TestQASystem(unittest.TestCase):
 
     def test_metric_type_and_cell_line_disambiguation(self):
         """Verifies that enzyme IC50 (EGFR) is never confused with cellular growth inhibition (A549)."""
-        txt_path = "/Users/prejin/Thesis/sample_papers/paper1_kinase_inhibitors.txt"
+        txt_path = os.path.join(SAMPLE_DIR, "paper1_kinase_inhibitors.txt")
         with open(txt_path, "r", encoding="utf-8") as f:
             content = f.read()
         pages = DocumentParser.parse_text_content(content)
@@ -133,7 +136,7 @@ class TestQASystem(unittest.TestCase):
 
     def test_target_absence_detection(self):
         """Verifies that querying for an unmeasured target (HER2) triggers strict absence detection."""
-        txt_path = "/Users/prejin/Thesis/sample_papers/paper1_kinase_inhibitors.txt"
+        txt_path = os.path.join(SAMPLE_DIR, "paper1_kinase_inhibitors.txt")
         with open(txt_path, "r", encoding="utf-8") as f:
             content = f.read()
         pages = DocumentParser.parse_text_content(content)
@@ -149,7 +152,7 @@ class TestQASystem(unittest.TestCase):
 
     def test_paper3_antifungal_mic_extraction_and_qa(self):
         """Verifies that antimicrobial MIC values and fungal targets are correctly extracted and answered."""
-        txt_path = "/Users/prejin/Thesis/sample_papers/paper3_natural_product_sar.txt"
+        txt_path = os.path.join(SAMPLE_DIR, "paper3_natural_product_sar.txt")
         with open(txt_path, "r", encoding="utf-8") as f:
             content = f.read()
         pages = DocumentParser.parse_text_content(content)
@@ -169,7 +172,7 @@ class TestQASystem(unittest.TestCase):
 
     def test_authors_query(self):
         """Verifies that author-related questions correctly return the authors with Page 1 citation."""
-        txt_path = "/Users/prejin/Thesis/sample_papers/paper1_kinase_inhibitors.txt"
+        txt_path = os.path.join(SAMPLE_DIR, "paper1_kinase_inhibitors.txt")
         with open(txt_path, "r", encoding="utf-8") as f:
             content = f.read()
         pages = DocumentParser.parse_text_content(content)
@@ -195,7 +198,7 @@ class TestQASystem(unittest.TestCase):
 
     def test_summary_query(self):
         """Verifies that summary questions return a structured executive summary from the paper."""
-        txt_path = "/Users/prejin/Thesis/sample_papers/paper1_kinase_inhibitors.txt"
+        txt_path = os.path.join(SAMPLE_DIR, "paper1_kinase_inhibitors.txt")
         with open(txt_path, "r", encoding="utf-8") as f:
             content = f.read()
         pages = DocumentParser.parse_text_content(content)
@@ -216,7 +219,7 @@ class TestQASystem(unittest.TestCase):
 
     def test_conclusion_query(self):
         """Verifies that questions about conclusions return paper conclusions."""
-        txt_path = "/Users/prejin/Thesis/sample_papers/paper1_kinase_inhibitors.txt"
+        txt_path = os.path.join(SAMPLE_DIR, "paper1_kinase_inhibitors.txt")
         with open(txt_path, "r", encoding="utf-8") as f:
             content = f.read()
         pages = DocumentParser.parse_text_content(content)
@@ -232,7 +235,7 @@ class TestQASystem(unittest.TestCase):
 
     def test_chemical_synonym_expansion_retrieval(self):
         """Verifies that queries using synonyms like 'synthetic efficiency' or 'antiproliferative potency' successfully retrieve relevant chunks."""
-        txt_path = "/Users/prejin/Thesis/sample_papers/paper1_kinase_inhibitors.txt"
+        txt_path = os.path.join(SAMPLE_DIR, "paper1_kinase_inhibitors.txt")
         with open(txt_path, "r", encoding="utf-8") as f:
             content = f.read()
         pages = DocumentParser.parse_text_content(content)
@@ -250,7 +253,7 @@ class TestQASystem(unittest.TestCase):
 
     def test_structured_data_context_injection(self):
         """Verifies that _get_matching_structured_context extracts exact matching table rows and bioactivities."""
-        txt_path = "/Users/prejin/Thesis/sample_papers/paper1_kinase_inhibitors.txt"
+        txt_path = os.path.join(SAMPLE_DIR, "paper1_kinase_inhibitors.txt")
         with open(txt_path, "r", encoding="utf-8") as f:
             content = f.read()
         pages = DocumentParser.parse_text_content(content)

@@ -41,7 +41,9 @@ try:
 except Exception:
     pass
 
-LOGO_PATH = os.path.join(os.path.dirname(__file__), "assets", "logo.png")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOGO_PATH = os.path.join(BASE_DIR, "assets", "logo.png")
+SAMPLE_PAPERS_DIR = os.path.join(BASE_DIR, "sample_papers")
 
 from core.models import (
     PaperAnalysisResult,
@@ -694,33 +696,36 @@ if "relevance_active_query" not in st.session_state:
 
 # Helper to ingest a paper
 def ingest_paper_content(file_label: str, file_type: str, data: Any, api_key: Optional[str] = None):
-    pdf_bytes = data if file_type == "pdf" else None
-    if file_type == "pdf":
-        pages = DocumentParser.parse_pdf_bytes(data)
-    else:
-        pages = DocumentParser.parse_text_content(data)
+    try:
+        pdf_bytes = data if file_type == "pdf" else None
+        if file_type == "pdf":
+            pages = DocumentParser.parse_pdf_bytes(data)
+        else:
+            pages = DocumentParser.parse_text_content(data)
 
-    if not pages:
-        return False, "Could not extract text from document."
+        if not pages:
+            return False, "Could not extract text from document."
 
-    metadata = DocumentParser.extract_metadata(pages)
-    engine = EvidenceEngine(pages)
-    active_key = api_key or os.getenv("GEMINI_API_KEY") or DEFAULT_BACKEND_KEY
-    extractor = ChemistryExtractor(api_key=active_key)
-    analysis = extractor.analyze_paper(pages, metadata, engine)
+        metadata = DocumentParser.extract_metadata(pages)
+        engine = EvidenceEngine(pages)
+        active_key = api_key or os.getenv("GEMINI_API_KEY") or DEFAULT_BACKEND_KEY
+        extractor = ChemistryExtractor(api_key=active_key)
+        analysis = extractor.analyze_paper(pages, metadata, engine)
 
-    st.session_state.papers_store[file_label] = {
-        "pages": pages,
-        "metadata": metadata,
-        "engine": engine,
-        "analysis": analysis,
-        "pdf_bytes": pdf_bytes,
-        "file_type": file_type
-    }
-    st.session_state.active_paper_name = file_label
-    st.session_state.viewer_page = 1
-    st.session_state.highlight_quote = None
-    return True, "Success"
+        st.session_state.papers_store[file_label] = {
+            "pages": pages,
+            "metadata": metadata,
+            "engine": engine,
+            "analysis": analysis,
+            "pdf_bytes": pdf_bytes,
+            "file_type": file_type
+        }
+        st.session_state.active_paper_name = file_label
+        st.session_state.viewer_page = 1
+        st.session_state.highlight_quote = None
+        return True, "Success"
+    except Exception as e:
+        return False, f"Ingestion error: {str(e)}"
 
 
 def render_paper_ingestion_ui(key_prefix: str = "main", title: Optional[str] = None, api_key: Optional[str] = None):
@@ -745,27 +750,34 @@ def render_paper_ingestion_ui(key_prefix: str = "main", title: Optional[str] = N
             type=["pdf", "txt"],
             accept_multiple_files=True,
             key=f"{key_prefix}_file_uploader",
-            help="Upload research paper files (Max 500MB supported). You can select multiple files at once."
+            help="Upload research paper files (Max 100MB supported). You can select multiple files at once."
         )
         if uploaded_files:
             new_files = [f for f in uploaded_files if f.name not in st.session_state.papers_store]
             if new_files:
+                err_msgs = []
                 with st.spinner(f"Ingesting & analyzing {len(new_files)} new publication(s)..."):
                     for uf in new_files:
                         raw_bytes = uf.read()
                         ftype = "pdf" if uf.name.lower().endswith(".pdf") else "txt"
                         fdata = raw_bytes if ftype == "pdf" else raw_bytes.decode("utf-8", errors="replace")
-                        ingest_paper_content(uf.name, ftype, fdata, active_key)
-                if len(st.session_state.papers_store) >= 2 and (len(uploaded_files) > 1 or st.session_state.app_mode == "Multi-Paper Workspace"):
-                    st.session_state.app_mode = "Multi-Paper Workspace"
-                st.rerun()
+                        success, msg = ingest_paper_content(uf.name, ftype, fdata, active_key)
+                        if not success:
+                            err_msgs.append(f"❌ Failed to process '{uf.name}': {msg}")
+                if err_msgs:
+                    for em in err_msgs:
+                        st.error(em)
+                if any(f.name in st.session_state.papers_store for f in new_files):
+                    if len(st.session_state.papers_store) >= 2 and (len(uploaded_files) > 1 or st.session_state.app_mode == "Multi-Paper Workspace"):
+                        st.session_state.app_mode = "Multi-Paper Workspace"
+                    st.rerun()
             elif len(uploaded_files) > 0:
                 st.info(f"✅ All {len(uploaded_files)} selected files are already loaded in memory.")
 
     with upload_tab2:
         path_input = st.text_input(
             "Enter absolute or relative path to the paper on disk:",
-            placeholder="e.g. sample_papers/paper1_kinase_inhibitors.pdf or /Users/prejin/Thesis/my_paper.pdf",
+            placeholder="e.g. sample_papers/paper1_kinase_inhibitors.pdf or path/to/paper.pdf",
             key=f"{key_prefix}_path_input"
         )
         if st.button("Load Paper from Path", key=f"{key_prefix}_btn_load_path", type="primary") and path_input.strip():
@@ -827,18 +839,21 @@ with st.sidebar:
 
     st.markdown("### ⚙️ Gemini Intelligence Engine")
     default_key_val = os.getenv("GEMINI_API_KEY") or DEFAULT_BACKEND_KEY
+    has_backend_key = bool(default_key_val)
 
-    # Optional collapsed override (never exposes or pre-fills the default backend key)
-    with st.expander("🔑 Custom API Key (Optional Override)", expanded=False):
+    with st.expander("🔑 Gemini API Key Configuration", expanded=not has_backend_key):
         custom_key_override = st.text_input(
-            "Custom Gemini Key:",
+            "Gemini API Key:",
             type="password",
-            value="",
-            placeholder="Leave empty to use default backend key",
-            help="Optional: Enter a different key only if you want to override the default backend key."
+            value=st.session_state.get("gemini_user_api_key", ""),
+            placeholder="AIzaSy... (or set GEMINI_API_KEY in Secrets)",
+            help="Enter your Google Gemini API key to activate Gemini 3.8 Flash intelligence. You can also configure it in Streamlit Cloud Secrets."
         )
+        if custom_key_override:
+            st.session_state.gemini_user_api_key = custom_key_override.strip()
 
-    api_key_input = custom_key_override.strip() if custom_key_override.strip() else default_key_val
+    user_entered_key = st.session_state.get("gemini_user_api_key", "")
+    api_key_input = user_entered_key or default_key_val
 
     if api_key_input:
         st.markdown("""
@@ -848,12 +863,12 @@ with st.sidebar:
                 <span style="color: #8F2E44; font-weight: 700; font-size: 0.85rem;">✨ Gemini 3.8 Flash Active</span>
             </div>
             <span style="color: #6C4C54; font-size: 0.74rem; display: block; line-height: 1.35;">
-                Default backend AI connected • Scientific reasoning ready
+                AI connected • Scientific reasoning ready
             </span>
         </div>
         """, unsafe_allow_html=True)
     else:
-        st.info("⚡ Local Deterministic Engine Active (Offline)")
+        st.info("⚡ Local Deterministic Engine Active (Offline) — Enter a Gemini API Key above to enable advanced LLM features.")
 
     enable_pubchem = st.toggle("Enable Live PubChem Structure Lookup", value=True)
 
@@ -915,36 +930,45 @@ with st.sidebar:
     st.markdown("### 🚀 Quick Benchmark Loader")
     st.caption("Test full capabilities with 1-click pre-loaded literature:")
     
-    sample_dir = "/Users/prejin/Thesis/sample_papers"
+    sample_dir = SAMPLE_PAPERS_DIR
     
     col_s1, col_s2 = st.columns(2)
     with col_s1:
         if st.button("Paper 1 (Kinase SAR)", use_container_width=True):
             p1_pdf = os.path.join(sample_dir, "paper1_kinase_inhibitors.pdf")
             p1_txt = os.path.join(sample_dir, "paper1_kinase_inhibitors.txt")
+            loaded = False
             if os.path.exists(p1_pdf):
                 with open(p1_pdf, "rb") as f:
-                    ingest_paper_content("Paper 1: EGFR Kinase Inhibitors", "pdf", f.read(), api_key_input)
+                    loaded, _ = ingest_paper_content("Paper 1: EGFR Kinase Inhibitors", "pdf", f.read(), api_key_input)
             elif os.path.exists(p1_txt):
                 with open(p1_txt, "r", encoding="utf-8") as f:
-                    ingest_paper_content("Paper 1: EGFR Kinase Inhibitors", "txt", f.read(), api_key_input)
-            st.session_state.app_layout = "split"
-            st.rerun()
+                    loaded, _ = ingest_paper_content("Paper 1: EGFR Kinase Inhibitors", "txt", f.read(), api_key_input)
+            if loaded:
+                st.session_state.app_layout = "split"
+                st.rerun()
+            else:
+                st.error("Failed to load benchmark Paper 1. Ensure `sample_papers/` is available.")
     with col_s2:
         if st.button("Paper 2 (Discrepancy)", use_container_width=True):
             p2_pdf = os.path.join(sample_dir, "paper2_catalytic_synthesis_conflicts.pdf")
             p2_txt = os.path.join(sample_dir, "paper2_catalytic_synthesis_conflicts.txt")
+            loaded = False
             if os.path.exists(p2_pdf):
                 with open(p2_pdf, "rb") as f:
-                    ingest_paper_content("Paper 2: Catalytic Synthesis Discrepancy", "pdf", f.read(), api_key_input)
+                    loaded, _ = ingest_paper_content("Paper 2: Catalytic Synthesis Discrepancy", "pdf", f.read(), api_key_input)
             elif os.path.exists(p2_txt):
                 with open(p2_txt, "r", encoding="utf-8") as f:
-                    ingest_paper_content("Paper 2: Catalytic Synthesis Discrepancy", "txt", f.read(), api_key_input)
-            st.session_state.app_layout = "split"
-            st.rerun()
+                    loaded, _ = ingest_paper_content("Paper 2: Catalytic Synthesis Discrepancy", "txt", f.read(), api_key_input)
+            if loaded:
+                st.session_state.app_layout = "split"
+                st.rerun()
+            else:
+                st.error("Failed to load benchmark Paper 2. Ensure `sample_papers/` is available.")
 
     if st.button("Load All 3 Benchmark Papers (Multi-Paper Ready)", use_container_width=True):
         with st.spinner("Ingesting benchmark literature corpus..."):
+            loaded_count = 0
             for fname_base, label in [
                 ("paper1_kinase_inhibitors", "Paper 1: EGFR Kinase Inhibitors"),
                 ("paper2_catalytic_synthesis_conflicts", "Paper 2: Catalytic Synthesis Discrepancy"),
@@ -954,12 +978,17 @@ with st.sidebar:
                 txt_f = os.path.join(sample_dir, f"{fname_base}.txt")
                 if os.path.exists(pdf_f):
                     with open(pdf_f, "rb") as f:
-                        ingest_paper_content(label, "pdf", f.read(), api_key_input)
+                        s, _ = ingest_paper_content(label, "pdf", f.read(), api_key_input)
+                        if s: loaded_count += 1
                 elif os.path.exists(txt_f):
                     with open(txt_f, "r", encoding="utf-8") as f:
-                        ingest_paper_content(label, "txt", f.read(), api_key_input)
-        st.session_state.app_mode = "Multi-Paper Workspace"
-        st.rerun()
+                        s, _ = ingest_paper_content(label, "txt", f.read(), api_key_input)
+                        if s: loaded_count += 1
+            if loaded_count > 0:
+                st.session_state.app_mode = "Multi-Paper Workspace"
+                st.rerun()
+            else:
+                st.error("Failed to load benchmark corpus. Ensure `sample_papers/` is available.")
 
 
 # ---------------------------------------------------------
@@ -2144,28 +2173,36 @@ Generated for {num_loaded} Publications
         with col_st2:
             st.markdown("#### 🚀 Benchmark Starters")
             st.caption("Instantly compare against pre-loaded literature:")
-            sample_dir = "/Users/prejin/Thesis/sample_papers"
+            sample_dir = SAMPLE_PAPERS_DIR
             if st.button("➕ Add Paper 1 (Kinase SAR)", key="stage_add_p1", use_container_width=True):
                 p1_pdf = os.path.join(sample_dir, "paper1_kinase_inhibitors.pdf")
                 p1_txt = os.path.join(sample_dir, "paper1_kinase_inhibitors.txt")
+                loaded = False
                 if os.path.exists(p1_pdf):
                     with open(p1_pdf, "rb") as f:
-                        ingest_paper_content("Paper 1: EGFR Kinase Inhibitors", "pdf", f.read(), api_key_input)
+                        loaded, _ = ingest_paper_content("Paper 1: EGFR Kinase Inhibitors", "pdf", f.read(), api_key_input)
                 elif os.path.exists(p1_txt):
                     with open(p1_txt, "r", encoding="utf-8") as f:
-                        ingest_paper_content("Paper 1: EGFR Kinase Inhibitors", "txt", f.read(), api_key_input)
-                st.rerun()
+                        loaded, _ = ingest_paper_content("Paper 1: EGFR Kinase Inhibitors", "txt", f.read(), api_key_input)
+                if loaded:
+                    st.rerun()
+                else:
+                    st.error("Failed to load Paper 1. Ensure `sample_papers/` is available.")
 
             if st.button("➕ Add Paper 2 (Discrepancy)", key="stage_add_p2", use_container_width=True):
                 p2_pdf = os.path.join(sample_dir, "paper2_catalytic_synthesis_conflicts.pdf")
                 p2_txt = os.path.join(sample_dir, "paper2_catalytic_synthesis_conflicts.txt")
+                loaded = False
                 if os.path.exists(p2_pdf):
                     with open(p2_pdf, "rb") as f:
-                        ingest_paper_content("Paper 2: Catalytic Synthesis Discrepancy", "pdf", f.read(), api_key_input)
+                        loaded, _ = ingest_paper_content("Paper 2: Catalytic Synthesis Discrepancy", "pdf", f.read(), api_key_input)
                 elif os.path.exists(p2_txt):
                     with open(p2_txt, "r", encoding="utf-8") as f:
-                        ingest_paper_content("Paper 2: Catalytic Synthesis Discrepancy", "txt", f.read(), api_key_input)
-                st.rerun()
+                        loaded, _ = ingest_paper_content("Paper 2: Catalytic Synthesis Discrepancy", "txt", f.read(), api_key_input)
+                if loaded:
+                    st.rerun()
+                else:
+                    st.error("Failed to load Paper 2. Ensure `sample_papers/` is available.")
 
             if st.button("⚡ Load 100-Paper Library (Relevance Filtering Demo)", key="stage_add_100", use_container_width=True, type="primary"):
                 benchmark_100 = RelevanceFilterEngine.generate_benchmark_library_100()
@@ -2201,7 +2238,12 @@ Generated for {num_loaded} Publications
 # SINGLE PAPER INGESTION SCREEN (When no active paper)
 # =========================================================
 if not st.session_state.active_paper_name or st.session_state.active_paper_name not in st.session_state.papers_store:
-    st.markdown("""
+    badge_html = (
+        '<span class="status-found" style="font-size: 0.8rem; padding: 4px 12px;">✨ Gemini 3.8 Flash Connected</span>'
+        if api_key_input else
+        '<span class="status-conflict" style="font-size: 0.8rem; padding: 4px 12px; background: rgba(183, 110, 121, 0.18); color: #8F2E44;">⚡ Local Deterministic Engine (Offline)</span>'
+    )
+    st.markdown(f"""
     <div class="user-friendly-card" style="margin-bottom: 24px;">
         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
             <div>
@@ -2214,7 +2256,7 @@ if not st.session_state.active_paper_name or st.session_state.active_paper_name 
                 </p>
             </div>
             <div>
-                <span class="status-found" style="font-size: 0.8rem; padding: 4px 12px;">✨ Gemini 3.8 Flash Connected</span>
+                {badge_html}
             </div>
         </div>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-top: 20px;">
@@ -2238,7 +2280,7 @@ if not st.session_state.active_paper_name or st.session_state.active_paper_name 
     st.markdown("#### 🚀 1-Click Benchmark Literature (Instant Preview)")
     st.caption("Explore all features immediately with verified peer-reviewed chemistry benchmarks:")
 
-    sample_dir = "/Users/prejin/Thesis/sample_papers"
+    sample_dir = SAMPLE_PAPERS_DIR
     col_bench1, col_bench2, col_bench3 = st.columns(3)
 
     with col_bench1:
@@ -2253,14 +2295,18 @@ if not st.session_state.active_paper_name or st.session_state.active_paper_name 
         if st.button("🚀 Load Paper 1 Benchmark", key="home_load_p1", use_container_width=True, type="primary"):
             p1_pdf = os.path.join(sample_dir, "paper1_kinase_inhibitors.pdf")
             p1_txt = os.path.join(sample_dir, "paper1_kinase_inhibitors.txt")
+            loaded = False
             if os.path.exists(p1_pdf):
                 with open(p1_pdf, "rb") as f:
-                    ingest_paper_content("Paper 1: EGFR Kinase Inhibitors", "pdf", f.read(), api_key_input)
+                    loaded, _ = ingest_paper_content("Paper 1: EGFR Kinase Inhibitors", "pdf", f.read(), api_key_input)
             elif os.path.exists(p1_txt):
                 with open(p1_txt, "r", encoding="utf-8") as f:
-                    ingest_paper_content("Paper 1: EGFR Kinase Inhibitors", "txt", f.read(), api_key_input)
-            st.session_state.app_layout = "split"
-            st.rerun()
+                    loaded, _ = ingest_paper_content("Paper 1: EGFR Kinase Inhibitors", "txt", f.read(), api_key_input)
+            if loaded:
+                st.session_state.app_layout = "split"
+                st.rerun()
+            else:
+                st.error("Failed to load benchmark Paper 1. Ensure `sample_papers/` is available.")
 
     with col_bench2:
         st.markdown("""
@@ -2274,14 +2320,18 @@ if not st.session_state.active_paper_name or st.session_state.active_paper_name 
         if st.button("🚀 Load Paper 2 Benchmark", key="home_load_p2", use_container_width=True, type="primary"):
             p2_pdf = os.path.join(sample_dir, "paper2_catalytic_synthesis_conflicts.pdf")
             p2_txt = os.path.join(sample_dir, "paper2_catalytic_synthesis_conflicts.txt")
+            loaded = False
             if os.path.exists(p2_pdf):
                 with open(p2_pdf, "rb") as f:
-                    ingest_paper_content("Paper 2: Catalytic Synthesis Discrepancy", "pdf", f.read(), api_key_input)
+                    loaded, _ = ingest_paper_content("Paper 2: Catalytic Synthesis Discrepancy", "pdf", f.read(), api_key_input)
             elif os.path.exists(p2_txt):
                 with open(p2_txt, "r", encoding="utf-8") as f:
-                    ingest_paper_content("Paper 2: Catalytic Synthesis Discrepancy", "txt", f.read(), api_key_input)
-            st.session_state.app_layout = "split"
-            st.rerun()
+                    loaded, _ = ingest_paper_content("Paper 2: Catalytic Synthesis Discrepancy", "txt", f.read(), api_key_input)
+            if loaded:
+                st.session_state.app_layout = "split"
+                st.rerun()
+            else:
+                st.error("Failed to load benchmark Paper 2. Ensure `sample_papers/` is available.")
 
     with col_bench3:
         st.markdown("""
@@ -2294,6 +2344,7 @@ if not st.session_state.active_paper_name or st.session_state.active_paper_name 
         """, unsafe_allow_html=True)
         if st.button("🚀 Load Full 3-Paper Corpus", key="home_load_all", use_container_width=True, type="secondary"):
             with st.spinner("Ingesting benchmark literature corpus..."):
+                loaded_count = 0
                 for fname_base, label in [
                     ("paper1_kinase_inhibitors", "Paper 1: EGFR Kinase Inhibitors"),
                     ("paper2_catalytic_synthesis_conflicts", "Paper 2: Catalytic Synthesis Discrepancy"),
@@ -2303,12 +2354,17 @@ if not st.session_state.active_paper_name or st.session_state.active_paper_name 
                     txt_f = os.path.join(sample_dir, f"{fname_base}.txt")
                     if os.path.exists(pdf_f):
                         with open(pdf_f, "rb") as f:
-                            ingest_paper_content(label, "pdf", f.read(), api_key_input)
+                            s, _ = ingest_paper_content(label, "pdf", f.read(), api_key_input)
+                            if s: loaded_count += 1
                     elif os.path.exists(txt_f):
                         with open(txt_f, "r", encoding="utf-8") as f:
-                            ingest_paper_content(label, "txt", f.read(), api_key_input)
-            st.session_state.app_mode = "Multi-Paper Workspace"
-            st.rerun()
+                            s, _ = ingest_paper_content(label, "txt", f.read(), api_key_input)
+                            if s: loaded_count += 1
+                if loaded_count > 0:
+                    st.session_state.app_mode = "Multi-Paper Workspace"
+                    st.rerun()
+                else:
+                    st.error("Failed to load benchmark corpus. Ensure `sample_papers/` is available.")
 
     st.markdown("<br>", unsafe_allow_html=True)
     render_paper_ingestion_ui(key_prefix="home_ingest", title="📂 Or Analyze Your Own Chemistry Publication", api_key=api_key_input)

@@ -2,6 +2,7 @@
 Unit tests for EvidenceEngine (core/evidence_engine.py).
 """
 
+import os
 import unittest
 from core.pdf_parser import DocumentParser
 from core.evidence_engine import EvidenceEngine
@@ -10,7 +11,8 @@ from core.evidence_engine import EvidenceEngine
 class TestEvidenceEngine(unittest.TestCase):
 
     def setUp(self):
-        txt_path = "/Users/prejin/Thesis/sample_papers/paper1_kinase_inhibitors.txt"
+        sample_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sample_papers")
+        txt_path = os.path.join(sample_dir, "paper1_kinase_inhibitors.txt")
         with open(txt_path, "r", encoding="utf-8") as f:
             content = f.read()
         self.pages = DocumentParser.parse_text_content(content)
