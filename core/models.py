@@ -30,7 +30,9 @@ def generate_content_with_fallback(client, contents, config=None, models=None):
         except Exception as e:
             last_err = e
             continue
-    raise last_err
+    if last_err is not None:
+        raise last_err
+    raise RuntimeError("No models provided or all fallback attempts failed without an exception.")
 
 
 class EvidenceCitation(BaseModel):
