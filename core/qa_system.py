@@ -13,7 +13,7 @@ Features:
 import os
 import re
 from typing import List, Optional, Tuple, Dict, Any
-from core.pdf_parser import PageContent
+from core.pdf_parser import PageContent, DocumentParser
 from core.evidence_engine import EvidenceEngine, EvidenceChunk
 from core.models import (
     QAResponse, EvidenceCitation, ConflictAlert, PaperAnalysisResult,
